@@ -1,0 +1,55 @@
+
+services:
+  # CSDL chính cho luồng nghiệp vụ
+  vku-mongo:
+    image: mongo:6.0
+    container_name: vku-mongo
+    restart: always
+    ports:
+      - "27017:27017"
+    volumes:
+      - vku_mongo_data:/data/db
+
+  # Message Queue & Cache
+  vku-redis:
+    image: redis:7.0-alpine
+    container_name: vku-redis
+    restart: always
+    ports:
+      - "6380:6379"
+
+  # Nền tảng điều phối AI
+  vku-n8n:
+    image: n8nio/n8n:latest
+    container_name: vku-n8n
+    restart: always
+    ports:
+      - "5679:5678"
+    environment:
+      - N8N_HOST=vku-n8n.orb.local
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=http
+      - NODE_ENV=production
+      - WEBHOOK_URL=http://vku-n8n.orb.local:5678/
+      - GENERIC_TIMEZONE=Asia/Ho_Chi_Minh
+    volumes:
+      - vku_n8n_data:/home/node/.n8n
+
+  # Cơ sở dữ liệu Vector cho AI (RAG Core)
+  vku-pgvector:
+    image: ankane/pgvector:latest
+    container_name: vku-pgvector
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: supersecretpassword
+      POSTGRES_DB: vku_ai_rag
+    ports:
+      - "5432:5432"
+    volumes:
+      - vku_pg_data:/var/lib/postgresql/data
+
+volumes:
+  vku_mongo_data:
+  vku_n8n_data:
+  vku_pg_data:
