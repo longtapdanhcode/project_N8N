@@ -7,6 +7,7 @@ import { AppService } from './app.service';
 import { ThesisModule } from './modules/thesis/thesis.module';
 import { WebhookModule } from './modules/webhook/webhook.module';
 import { AssignmentModule } from './modules/assignment/assignment.module';
+import { AiModule } from './modules/ai/ai.module';
 
 @Module({
   imports: [
@@ -37,6 +38,7 @@ import { AssignmentModule } from './modules/assignment/assignment.module';
     ThesisModule,
     WebhookModule,
     AssignmentModule,
+    AiModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -1,12 +1,14 @@
-import { Controller, Get, Post } from '@nestjs/common';
+import { Body, Controller, Get, Post, Query } from '@nestjs/common';
 import { AppService } from './app.service';
 import { WebhookService } from './modules/webhook/webhook.service';
+import { AiService } from './modules/ai/ai.service';
 
 @Controller()
 export class AppController {
   constructor(
     private readonly appService: AppService,
     private readonly webhookService: WebhookService,
+    private readonly aiService: AiService,
   ) {}
 
   @Get()
@@ -31,5 +33,30 @@ export class AppController {
       dataSent: mockPayload,
     };
   }
-}
 
+  @Get('test-hybrid-search')
+  async testHybridSearchGet(@Query('query') query?: string) {
+    const searchQuery = query || 'Quy chế học vụ VKU vắng quá 20% số buổi';
+    const results = await this.aiService.hybridSearch(searchQuery);
+
+    return {
+      success: true,
+      query: searchQuery,
+      total: results.length,
+      data: results,
+    };
+  }
+
+  @Post('test-hybrid-search')
+  async testHybridSearch(@Body('query') query?: string) {
+    const searchQuery = query || 'Quy chế học vụ VKU vắng quá 20% số buổi';
+    const results = await this.aiService.hybridSearch(searchQuery);
+
+    return {
+      success: true,
+      query: searchQuery,
+      total: results.length,
+      data: results,
+    };
+  }
+}
