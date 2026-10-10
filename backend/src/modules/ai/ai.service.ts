@@ -1,5 +1,5 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { GeminiService } from './gemini.service';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { GeminiService, StructuredAiResponse } from './gemini.service';
 import {
   SupabaseService,
   HybridSearchResult,
@@ -16,6 +16,50 @@ export class AiService {
     private readonly geminiService: GeminiService,
     private readonly supabaseService: SupabaseService,
   ) {}
+
+  /**
+   * Complete RAG pipeline for student academic advisory:
+   * 1. Retrieves top matching documents via hybridSearch(question) from Supabase.
+   * 2. Gathers document contents as reference context.
+   * 3. Sends prompt and context to GeminiService.generateStructuredResponse.
+   * 4. Returns structured JSON adhering to the defined schema.
+   *
+   * @param question The student's academic question
+   * @returns StructuredAiResponse object
+   */
+  async askAssistant(question: string): Promise<StructuredAiResponse> {
+    if (!question || question.trim() === '') {
+      const errorMsg = 'Câu hỏi không được để trống.';
+      this.logger.error(errorMsg);
+      throw new BadRequestException(errorMsg);
+    }
+
+    this.logger.log(`[RAG Pipeline] Processing student question: "${question}"`);
+
+    // 1. Hybrid search to get top matching documents
+    const matchedDocs = await this.hybridSearch(question, { matchCount: 5 });
+    this.logger.log(
+      `[RAG Pipeline] Retrieved ${matchedDocs.length} matching documents from Supabase.`,
+    );
+
+    // 2. Format retrieved documents into context list
+    const contextDocs = matchedDocs.map(
+      (doc) => `[Tiêu đề: ${doc.title}]\nNội dung: ${doc.content}`,
+    );
+
+    // 3. Generate structured response with Gemini
+    const response = await this.geminiService.generateStructuredResponse(
+      question,
+      contextDocs,
+    );
+
+    this.logger.log(
+      `[RAG Pipeline] Response generated successfully (confidence: ${response.confidence_score}, escalation: ${response.requires_human_escalation})`,
+    );
+
+    // 4. Return structured response
+    return response;
+  }
 
   /**
    * Performs hybrid search combining full-text search and semantic vector search using RRF.

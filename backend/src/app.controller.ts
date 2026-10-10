@@ -59,4 +59,13 @@ export class AppController {
       data: results,
     };
   }
+
+  @Post('ai/ask')
+  async askAi(
+    @Body('question') question?: string,
+    @Body() body?: { question?: string },
+  ) {
+    const rawQuestion = question ?? body?.question;
+    return await this.aiService.askAssistant(rawQuestion ?? '');
+  }
 }
