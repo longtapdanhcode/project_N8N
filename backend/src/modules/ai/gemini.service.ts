@@ -89,7 +89,10 @@ export class GeminiService {
         : 'gemini-embedding-001';
 
     try {
-      return await this.callEmbedApi(primaryModel, text);
+      return await this.executeWithRetry(
+        () => this.callEmbedApi(primaryModel, text),
+        primaryModel,
+      );
     } catch (error: any) {
       if (
         error?.status === 404 ||
@@ -100,7 +103,10 @@ export class GeminiService {
           `Model '${primaryModel}' not found in current API version. Falling back to '${fallbackModel}'...`,
         );
         try {
-          return await this.callEmbedApi(fallbackModel, text);
+          return await this.executeWithRetry(
+            () => this.callEmbedApi(fallbackModel, text),
+            fallbackModel,
+          );
         } catch (fallbackError: any) {
           const fallbackMsg =
             fallbackError instanceof Error
@@ -125,8 +131,42 @@ export class GeminiService {
   }
 
   /**
+   * Generates embeddings in batches with concurrency control to prevent rate limiting.
+   *
+   * @param texts Array of string chunks to embed
+   * @param concurrency Number of parallel requests per batch (default: 5)
+   * @returns Array of 768-dimensional embedding vectors
+   */
+  async generateBatchEmbeddings(
+    texts: string[],
+    concurrency = 5,
+  ): Promise<number[][]> {
+    if (!texts || texts.length === 0) {
+      return [];
+    }
+
+    this.logger.log(
+      `Generating batch embeddings for ${texts.length} items (concurrency: ${concurrency})...`,
+    );
+
+    const embeddings: number[][] = [];
+    for (let i = 0; i < texts.length; i += concurrency) {
+      const batch = texts.slice(i, i + concurrency);
+      const batchPromises = batch.map((text) => this.generateEmbedding(text));
+      const batchResults = await Promise.all(batchPromises);
+      embeddings.push(...batchResults);
+    }
+
+    this.logger.log(
+      `Successfully generated batch embeddings for ${texts.length} items.`,
+    );
+    return embeddings;
+  }
+
+  /**
    * Generates a structured JSON response using Gemini Structured Outputs.
    * Ensures output adheres strictly to StructuredAiResponse schema.
+   * Resilient against temporary 503/429 spikes via exponential backoff and fallback model chain.
    *
    * @param prompt The question or user prompt
    * @param contextDocs Array of relevant context text snippets
@@ -142,9 +182,16 @@ export class GeminiService {
       throw new Error(errorMsg);
     }
 
-    const modelName = this.configService.get<string>(
+    const primaryModel = this.configService.get<string>(
       'GEMINI_MODEL',
       'gemini-2.5-flash',
+    );
+    const fallbackModel = this.configService.get<string>(
+      'GEMINI_FALLBACK_MODEL',
+      'gemini-1.5-flash',
+    );
+    const modelChain = Array.from(
+      new Set([primaryModel, fallbackModel, 'gemini-2.0-flash']),
     );
 
     const contextText =
@@ -154,32 +201,66 @@ export class GeminiService {
 
     const contents = `Dưới đây là các tài liệu tham khảo được cung cấp:\n${contextText}\n\nCâu hỏi của sinh viên:\n${prompt}`;
 
-    try {
-      return await this.callGenerateStructuredContent(modelName, contents);
-    } catch (error: any) {
-      if (
-        (error?.status === 404 ||
-          error?.message?.includes('not found') ||
-          error?.message?.includes('404')) &&
-        modelName !== 'gemini-1.5-flash'
-      ) {
-        this.logger.warn(
-          `Model '${modelName}' not found or unsupported. Falling back to 'gemini-1.5-flash'...`,
+    let lastError: any;
+    for (const model of modelChain) {
+      try {
+        return await this.executeWithRetry(
+          () => this.callGenerateStructuredContent(model, contents),
+          model,
         );
-        return await this.callGenerateStructuredContent(
-          'gemini-1.5-flash',
-          contents,
+      } catch (error: any) {
+        lastError = error;
+        this.logger.warn(
+          `Model '${model}' failed: ${error?.message || error}. Falling back to next model in chain...`,
         );
       }
-
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-      this.logger.error(
-        `Failed to generate structured response with Gemini: ${errorMessage}`,
-        error instanceof Error ? error.stack : undefined,
-      );
-      throw error;
     }
+
+    const errorMessage =
+      lastError instanceof Error ? lastError.message : String(lastError);
+    this.logger.error(
+      `All models in fallback chain failed: ${errorMessage}`,
+      lastError instanceof Error ? lastError.stack : undefined,
+    );
+    throw lastError;
+  }
+
+  private isRetryableError(error: any): boolean {
+    const status = error?.status || error?.code;
+    const msg = error?.message || String(error);
+    return (
+      status === 503 ||
+      status === 429 ||
+      msg.includes('503') ||
+      msg.includes('429') ||
+      msg.includes('UNAVAILABLE') ||
+      msg.includes('RESOURCE_EXHAUSTED') ||
+      msg.includes('high demand')
+    );
+  }
+
+  private async executeWithRetry<T>(
+    action: () => Promise<T>,
+    modelName: string,
+    maxRetries = 3,
+  ): Promise<T> {
+    const delays = [1000, 2000, 4000];
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        return await action();
+      } catch (error: any) {
+        if (attempt < maxRetries && this.isRetryableError(error)) {
+          const delayMs = delays[attempt] ?? 4000;
+          this.logger.warn(
+            `Gemini API returned retryable error for '${modelName}'. Retrying in ${delayMs / 1000}s (attempt ${attempt + 1}/${maxRetries})...`,
+          );
+          await new Promise((resolve) => setTimeout(resolve, delayMs));
+          continue;
+        }
+        throw error;
+      }
+    }
+    throw new Error('Unreachable retry state');
   }
 
   private async callGenerateStructuredContent(

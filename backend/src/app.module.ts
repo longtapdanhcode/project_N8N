@@ -8,6 +8,11 @@ import { ThesisModule } from './modules/thesis/thesis.module';
 import { WebhookModule } from './modules/webhook/webhook.module';
 import { AssignmentModule } from './modules/assignment/assignment.module';
 import { AiModule } from './modules/ai/ai.module';
+import { DocumentModule } from './modules/document/document.module';
+import { AcademicWarningModule } from './modules/academic-warning/academic-warning.module';
+import { AttendanceModule } from './modules/attendance/attendance.module';
+import { CourseRegistrationModule } from './modules/course-registration/course-registration.module';
+import { StudentModule } from './modules/student/student.module';
 
 @Module({
   imports: [
@@ -39,6 +44,11 @@ import { AiModule } from './modules/ai/ai.module';
     WebhookModule,
     AssignmentModule,
     AiModule,
+    DocumentModule,
+    AcademicWarningModule,
+    AttendanceModule,
+    CourseRegistrationModule,
+    StudentModule,
   ],
   controllers: [AppController],
   providers: [AppService],

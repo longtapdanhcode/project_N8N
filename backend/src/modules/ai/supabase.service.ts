@@ -115,6 +115,93 @@ export class SupabaseService {
   }
 
   /**
+   * Inserts a batch of documents with embeddings into the public.documents table.
+   *
+   * @param docs Array of document objects with title, content, embedding, and optional metadata
+   * @returns Array of created DocumentRecords
+   */
+  async insertDocumentsBatch<T = DocumentRecord>(
+    docs: Array<{
+      title: string;
+      content: string;
+      embedding: number[];
+      metadata?: Record<string, any>;
+    }>,
+  ): Promise<T[]> {
+    if (!docs || docs.length === 0) {
+      return [];
+    }
+
+    try {
+      const recordsToInsert = docs.map((doc) => ({
+        title: doc.title,
+        content: doc.content,
+        embedding: doc.embedding,
+        metadata: doc.metadata ?? {},
+      }));
+
+      const { data, error } = await this.client
+        .from('documents')
+        .insert(recordsToInsert)
+        .select();
+
+      if (error) {
+        this.logger.error(
+          `Failed to batch insert documents into Supabase: ${error.message}`,
+          error,
+        );
+        throw error;
+      }
+
+      this.logger.log(
+        `Successfully batch inserted ${docs.length} documents into Supabase.`,
+      );
+      return (data as T[]) ?? [];
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      this.logger.error(`Error in insertDocumentsBatch: ${errorMessage}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Retrieves a list of documents without their heavy vector embeddings.
+   * Useful for administrative inspection and knowledge base browsing.
+   *
+   * @param limit Number of documents to fetch (default: 20)
+   * @param offset Offset index for pagination (default: 0)
+   * @returns Array of document records
+   */
+  async getDocuments<T = Omit<DocumentRecord, 'embedding'>>(
+    limit = 20,
+    offset = 0,
+  ): Promise<T[]> {
+    try {
+      const { data, error } = await this.client
+        .from('documents')
+        .select('id, title, content, metadata, created_at')
+        .order('created_at', { ascending: false })
+        .range(offset, offset + limit - 1);
+
+      if (error) {
+        this.logger.error(
+          `Failed to fetch documents from Supabase: ${error.message}`,
+          error,
+        );
+        throw error;
+      }
+
+      return (data as T[]) ?? [];
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      this.logger.error(`Error in getDocuments: ${errorMessage}`);
+      throw error;
+    }
+  }
+
+  /**
    * Searches for similar documents using cosine similarity via match_documents RPC.
    *
    * @param queryEmbedding Vector embedding of the search query

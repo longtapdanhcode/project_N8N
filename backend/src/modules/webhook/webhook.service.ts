@@ -16,17 +16,26 @@ export class WebhookService {
 
   /**
    * Dispatches an event payload to the n8n webhook workflow with HMAC-SHA256 signature authentication.
+   * Includes 8000ms request timeout and exponential backoff retry.
    *
    * @param payload The arbitrary data payload to transmit to n8n
-   * @param eventType Distinct event identifier (e.g. 'ASSIGNMENT_ANALYZED', 'THESIS_MILESTONE_UPDATED')
+   * @param eventType Distinct event identifier (e.g. 'ASSIGNMENT_ANALYZED', 'ACADEMIC_WARNING_ALERT')
+   * @param overrideUrl Optional specific webhook URL (overrides default N8N_WEBHOOK_URL)
+   * @param maxRetries Maximum retry attempts (default: 3)
    * @returns WebhookDeliveryResult containing status and upstream response
    */
-  async sendToN8n(payload: any, eventType: string): Promise<WebhookDeliveryResult> {
-    const webhookUrl = this.configService.get<string>('N8N_WEBHOOK_URL');
+  async sendToN8n(
+    payload: any,
+    eventType: string,
+    overrideUrl?: string,
+    maxRetries = 3,
+  ): Promise<WebhookDeliveryResult> {
+    const webhookUrl =
+      overrideUrl || this.configService.get<string>('N8N_WEBHOOK_URL');
     const secretKey = this.configService.get<string>('WEBHOOK_SECRET');
 
     if (!webhookUrl) {
-      const errorMsg = 'N8N_WEBHOOK_URL is not defined in application configuration.';
+      const errorMsg = 'Target webhook URL is not defined in configuration.';
       this.logger.error(errorMsg);
       throw new Error(errorMsg);
     }
@@ -48,49 +57,92 @@ export class WebhookService {
 
     this.logger.log(`Dispatching webhook event "${eventType}" to n8n: ${webhookUrl}`);
 
-    try {
-      // 3. Make POST request using native fetch with X-Signature header and raw stringified body
-      const response = await fetch(webhookUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Signature': signature,
-          'X-Event-Type': eventType,
-        },
-        body: rawPayload,
-      });
+    const delays = [1000, 2000, 4000];
+    let lastError: any;
+    let lastResult: WebhookDeliveryResult | null = null;
 
-      let responseBody: any;
-      const contentType = response.headers.get('content-type') ?? '';
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 8000);
 
-      if (contentType.includes('application/json')) {
-        responseBody = await response.json();
-      } else {
-        responseBody = await response.text();
-      }
+      try {
+        const response = await fetch(webhookUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Signature': signature,
+            'X-Event-Type': eventType,
+          },
+          body: rawPayload,
+          signal: controller.signal,
+        });
 
-      if (!response.ok) {
-        this.logger.error(
-          `n8n webhook responded with non-2xx status code: ${response.status} (${response.statusText}). Body: ${JSON.stringify(responseBody)}`,
+        const rawText = await response.text();
+        let responseBody: any = rawText;
+        const contentType = response.headers.get('content-type') ?? '';
+
+        if (rawText && rawText.trim().length > 0 && contentType.includes('application/json')) {
+          try {
+            responseBody = JSON.parse(rawText);
+          } catch {
+            responseBody = rawText;
+          }
+        }
+
+        if (!response.ok) {
+          this.logger.warn(
+            `n8n webhook attempt ${attempt + 1}/${maxRetries + 1} responded with non-2xx status: ${response.status}`,
+          );
+          lastResult = {
+            success: false,
+            statusCode: response.status,
+            data: responseBody,
+          };
+
+          if (attempt < maxRetries && response.status >= 500) {
+            const delay = delays[attempt] ?? 4000;
+            await new Promise((resolve) => setTimeout(resolve, delay));
+            continue;
+          }
+          return lastResult;
+        }
+
+        this.logger.log(
+          `n8n webhook event "${eventType}" successfully delivered (HTTP ${response.status})`,
         );
         return {
-          success: false,
+          success: true,
           statusCode: response.status,
           data: responseBody,
         };
-      }
+      } catch (error: any) {
+        lastError = error;
+        const isAbort = error?.name === 'AbortError';
+        this.logger.warn(
+          `n8n webhook attempt ${attempt + 1}/${maxRetries + 1} failed: ${isAbort ? 'Timeout after 8000ms' : error?.message || error}`,
+        );
 
-      this.logger.log(`n8n webhook event "${eventType}" successfully delivered (HTTP ${response.status})`);
-      return {
-        success: true,
-        statusCode: response.status,
-        data: responseBody,
-      };
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      this.logger.error(`Failed to send webhook to n8n: ${errorMessage}`, error instanceof Error ? error.stack : undefined);
-      throw error;
+        if (attempt < maxRetries) {
+          const delay = delays[attempt] ?? 4000;
+          await new Promise((resolve) => setTimeout(resolve, delay));
+          continue;
+        }
+      } finally {
+        clearTimeout(timeoutId);
+      }
     }
+
+    if (lastResult) {
+      return lastResult;
+    }
+
+    const finalMsg = lastError instanceof Error ? lastError.message : String(lastError);
+    this.logger.error(`Failed to send webhook to n8n after ${maxRetries + 1} attempts: ${finalMsg}`);
+    return {
+      success: false,
+      statusCode: 504,
+      data: { error: finalMsg },
+    };
   }
 
   /**

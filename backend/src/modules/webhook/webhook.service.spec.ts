@@ -52,6 +52,7 @@ describe('WebhookService', () => {
       headers: {
         get: (header: string) => (header === 'content-type' ? 'application/json' : null),
       },
+      text: jest.fn().mockResolvedValue(JSON.stringify({ received: true })),
       json: jest.fn().mockResolvedValue({ received: true }),
     });
     global.fetch = mockFetch;

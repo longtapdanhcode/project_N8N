@@ -16,8 +16,18 @@ async function bootstrap() {
   app.useBodyParser('json', { limit: '10mb' });
   app.useBodyParser('urlencoded', { extended: true, limit: '10mb' });
 
-  // Enable Cross-Origin Resource Sharing
-  app.enableCors();
+  // Enable Cross-Origin Resource Sharing for Frontend
+  app.enableCors({
+    origin: [
+      'http://localhost:3000',
+      'http://localhost:3001',
+      'http://localhost:3002',
+      'http://127.0.0.1:3000',
+      'http://127.0.0.1:3002',
+    ],
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+    credentials: true,
+  });
 
   const configService = app.get(ConfigService);
   const port = configService.get<number>('PORT') ?? 3000;

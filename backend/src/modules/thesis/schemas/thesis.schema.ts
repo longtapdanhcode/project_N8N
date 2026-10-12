@@ -54,6 +54,21 @@ export class Thesis {
   @Prop({ index: true })
   advisorId?: string;
 
+  @Prop()
+  studentName?: string;
+
+  @Prop()
+  advisorName?: string;
+
+  @Prop()
+  department?: string;
+
+  @Prop({ default: 0 })
+  progressPercent?: number;
+
+  @Prop({ default: 'NOT_ELIGIBLE' })
+  defenseStatus?: string;
+
   @Prop({
     type: [MilestoneSchema],
     default: [],

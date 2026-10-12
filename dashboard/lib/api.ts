@@ -6,215 +6,141 @@ import {
   PaginatedResult, 
   FilterOptions, 
   MilestoneStatus,
-  AttendanceStatus 
 } from '@/types';
-import { 
-  MOCK_STUDENTS, 
-  MOCK_ATTENDANCE_RECORDS, 
-  MOCK_THESES, 
-  calculateDashboardKPIs 
-} from './mock';
 
-const BACKEND_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001';
-
-// In-memory mutable copies for interactive demo changes
-let currentStudents = [...MOCK_STUDENTS];
-let currentAttendance = [...MOCK_ATTENDANCE_RECORDS];
-let currentTheses = [...MOCK_THESES];
-
-const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+const BACKEND_BASE_URL =
+  process.env.NEXT_PUBLIC_BACKEND_URL ||
+  process.env.NEXT_PUBLIC_API_URL ||
+  'http://localhost:3001';
 
 /**
- * Fetch paginated, filtered, and searched students
+ * Fetch paginated, filtered, and searched students directly from live database
  */
 export async function getStudents(options: FilterOptions = {}): Promise<PaginatedResult<Student>> {
-  await delay(60);
-  const {
-    search = '',
-    major = '',
-    classId = '',
-    status = '',
-    attendanceWarningOnly = false,
-    page = 1,
-    pageSize = 20,
-    sortBy = '',
-    sortOrder = 'asc',
-  } = options;
+  try {
+    const params = new URLSearchParams();
+    if (options.page) params.set('page', String(options.page));
+    if (options.pageSize) params.set('pageSize', String(options.pageSize));
+    if (options.search?.trim()) params.set('search', options.search.trim());
+    if (options.major) params.set('major', options.major);
+    if (options.classId) params.set('classId', options.classId);
+    if (options.status) params.set('status', options.status);
+    if (options.attendanceWarningOnly) params.set('attendanceWarningOnly', 'true');
+    if (options.sortBy) params.set('sortBy', options.sortBy);
+    if (options.sortOrder) params.set('sortOrder', options.sortOrder);
 
-  let filtered = currentStudents;
-
-  if (search.trim()) {
-    const q = search.trim().toLowerCase();
-    filtered = filtered.filter(
-      (s) =>
-        s.studentId.toLowerCase().includes(q) ||
-        s.fullName.toLowerCase().includes(q) ||
-        s.email.toLowerCase().includes(q) ||
-        s.classId.toLowerCase().includes(q)
-    );
-  }
-
-  if (major) {
-    filtered = filtered.filter((s) => s.major === major || s.major.includes(major));
-  }
-
-  if (classId) {
-    filtered = filtered.filter((s) => s.classId === classId);
-  }
-
-  if (status) {
-    filtered = filtered.filter((s) => s.status === status);
-  }
-
-  if (attendanceWarningOnly) {
-    filtered = filtered.filter((s) => s.attendanceWarning || s.examProhibited);
-  }
-
-  if (sortBy) {
-    filtered = [...filtered].sort((a, b) => {
-      let valA: any = (a as any)[sortBy];
-      let valB: any = (b as any)[sortBy];
-
-      if (sortBy === 'thesisProgress') {
-        valA = a.thesis ? a.thesis.progressPercent : -1;
-        valB = b.thesis ? b.thesis.progressPercent : -1;
-      }
-
-      if (typeof valA === 'string' && typeof valB === 'string') {
-        return sortOrder === 'desc'
-          ? valB.localeCompare(valA, 'vi')
-          : valA.localeCompare(valB, 'vi');
-      }
-
-      if (valA === undefined || valA === null) valA = 0;
-      if (valB === undefined || valB === null) valB = 0;
-
-      return sortOrder === 'desc' ? (valB > valA ? 1 : -1) : (valA > valB ? 1 : -1);
+    const res = await fetch(`${BACKEND_BASE_URL}/students?${params.toString()}`, {
+      cache: 'no-store',
     });
-  }
 
-  const total = filtered.length;
-  const totalPages = Math.ceil(total / pageSize);
-  const startIndex = (page - 1) * pageSize;
-  const pagedData = filtered.slice(startIndex, startIndex + pageSize);
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch (error) {
+    console.error('Failed to fetch students from live backend:', error);
+  }
 
   return {
-    data: pagedData,
-    total,
-    page,
-    pageSize,
-    totalPages,
+    data: [],
+    total: 0,
+    page: options.page || 1,
+    pageSize: options.pageSize || 20,
+    totalPages: 0,
   };
 }
 
 /**
- * Fetch list of unique class IDs
+ * Fetch list of unique class IDs from live MongoDB
  */
 export async function getClassList(): Promise<string[]> {
-  await delay(10);
-  return Array.from(new Set(currentStudents.map((s) => s.classId))).sort();
+  try {
+    const res = await fetch(`${BACKEND_BASE_URL}/students/classes`, { cache: 'no-store' });
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch (error) {
+    console.error('Failed to fetch class list from live backend:', error);
+  }
+  return [];
 }
 
 /**
- * Fetch top students violating attendance (>20% or highest absence rate)
+ * Fetch top students violating attendance from live database
  */
 export async function getTopAttendanceViolators(limit = 5): Promise<Student[]> {
-  await delay(20);
-  return currentStudents
-    .filter((s) => s.examProhibited)
-    .sort((a, b) => b.absentSessions - a.absentSessions)
-    .slice(0, limit);
+  try {
+    const res = await fetch(`${BACKEND_BASE_URL}/students/top-violators?limit=${limit}`, {
+      cache: 'no-store',
+    });
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch (error) {
+    console.error('Failed to fetch attendance violators from live backend:', error);
+  }
+  return [];
 }
 
 /**
- * Fetch a single student by ID
+ * Fetch a single student by ID with full grades and attendance history
  */
 export async function getStudentById(studentId: string): Promise<Student | null> {
-  await delay(40);
-  const found = currentStudents.find(
-    (s) => s.studentId.toLowerCase() === studentId.toLowerCase() || s.id === studentId
-  );
-  return found || null;
+  try {
+    const res = await fetch(`${BACKEND_BASE_URL}/students/${encodeURIComponent(studentId)}`, {
+      cache: 'no-store',
+    });
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch (error) {
+    console.error(`Failed to fetch student "${studentId}" from live backend:`, error);
+  }
+  return null;
 }
 
 /**
- * Fetch attendance records with filtering and pagination
+ * Fetch attendance records with filtering and pagination from live backend
  */
 export async function getAttendanceRecords(options: {
   search?: string;
-  status?: AttendanceStatus | 'ALL';
+  status?: string;
   classId?: string;
   page?: number;
   pageSize?: number;
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
 } = {}): Promise<PaginatedResult<AttendanceRecord>> {
-  await delay(60);
-  const {
-    search = '',
-    status = 'ALL',
-    classId = '',
-    page = 1,
-    pageSize = 20,
-    sortBy = '',
-    sortOrder = 'asc',
-  } = options;
+  try {
+    const params = new URLSearchParams();
+    if (options.page) params.set('page', String(options.page));
+    if (options.pageSize) params.set('pageSize', String(options.pageSize));
+    if (options.search?.trim()) params.set('search', options.search.trim());
+    if (options.status && options.status !== 'ALL') params.set('status', options.status);
+    if (options.classId) params.set('classId', options.classId);
+    if (options.sortBy) params.set('sortBy', options.sortBy);
+    if (options.sortOrder) params.set('sortOrder', options.sortOrder);
 
-  let filtered = currentAttendance;
-
-  if (search.trim()) {
-    const q = search.trim().toLowerCase();
-    filtered = filtered.filter(
-      (r) =>
-        r.studentId.toLowerCase().includes(q) ||
-        r.studentName.toLowerCase().includes(q) ||
-        r.subjectName.toLowerCase().includes(q) ||
-        r.subjectCode.toLowerCase().includes(q)
-    );
-  }
-
-  if (status && status !== 'ALL') {
-    filtered = filtered.filter((r) => r.status === status);
-  }
-
-  if (classId) {
-    filtered = filtered.filter((r) => r.classId === classId);
-  }
-
-  if (sortBy) {
-    filtered = [...filtered].sort((a, b) => {
-      let valA: any = (a as any)[sortBy];
-      let valB: any = (b as any)[sortBy];
-
-      if (typeof valA === 'string' && typeof valB === 'string') {
-        return sortOrder === 'desc'
-          ? valB.localeCompare(valA, 'vi')
-          : valA.localeCompare(valB, 'vi');
-      }
-
-      if (valA === undefined || valA === null) valA = 0;
-      if (valB === undefined || valB === null) valB = 0;
-
-      return sortOrder === 'desc' ? (valB > valA ? 1 : -1) : (valA > valB ? 1 : -1);
+    const res = await fetch(`${BACKEND_BASE_URL}/attendance/records?${params.toString()}`, {
+      cache: 'no-store',
     });
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch (error) {
+    console.error('Failed to fetch attendance records from live backend:', error);
   }
-
-  const total = filtered.length;
-  const totalPages = Math.ceil(total / pageSize);
-  const startIndex = (page - 1) * pageSize;
-  const pagedData = filtered.slice(startIndex, startIndex + pageSize);
 
   return {
-    data: pagedData,
-    total,
-    page,
-    pageSize,
-    totalPages,
+    data: [],
+    total: 0,
+    page: options.page || 1,
+    pageSize: options.pageSize || 20,
+    totalPages: 0,
   };
 }
 
 /**
- * Fetch theses with filtering and pagination
+ * Fetch theses with filtering and pagination from live MongoDB
  */
 export async function getTheses(options: {
   search?: string;
@@ -225,109 +151,132 @@ export async function getTheses(options: {
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
 } = {}): Promise<PaginatedResult<Thesis>> {
-  await delay(60);
-  const {
-    search = '',
-    advisorId = '',
-    defenseStatus = '',
-    page = 1,
-    pageSize = 20,
-    sortBy = '',
-    sortOrder = 'asc',
-  } = options;
+  try {
+    const params = new URLSearchParams();
+    if (options.page) params.set('page', String(options.page));
+    if (options.pageSize) params.set('pageSize', String(options.pageSize));
+    if (options.search?.trim()) params.set('search', options.search.trim());
+    if (options.advisorId) params.set('advisorId', options.advisorId);
+    if (options.defenseStatus) params.set('defenseStatus', options.defenseStatus);
+    if (options.sortBy) params.set('sortBy', options.sortBy);
+    if (options.sortOrder) params.set('sortOrder', options.sortOrder);
 
-  let filtered = currentTheses;
-
-  if (search.trim()) {
-    const q = search.trim().toLowerCase();
-    filtered = filtered.filter(
-      (t) =>
-        t.title.toLowerCase().includes(q) ||
-        t.studentId.toLowerCase().includes(q) ||
-        (t.studentName && t.studentName.toLowerCase().includes(q)) ||
-        (t.advisorName && t.advisorName.toLowerCase().includes(q))
-    );
-  }
-
-  if (advisorId) {
-    filtered = filtered.filter((t) => t.advisorId === advisorId);
-  }
-
-  if (defenseStatus) {
-    filtered = filtered.filter((t) => t.defenseStatus === defenseStatus);
-  }
-
-  if (sortBy) {
-    filtered = [...filtered].sort((a, b) => {
-      let valA: any = (a as any)[sortBy];
-      let valB: any = (b as any)[sortBy];
-
-      if (typeof valA === 'string' && typeof valB === 'string') {
-        return sortOrder === 'desc'
-          ? valB.localeCompare(valA, 'vi')
-          : valA.localeCompare(valB, 'vi');
-      }
-
-      if (valA === undefined || valA === null) valA = 0;
-      if (valB === undefined || valB === null) valB = 0;
-
-      return sortOrder === 'desc' ? (valB > valA ? 1 : -1) : (valA > valB ? 1 : -1);
+    const res = await fetch(`${BACKEND_BASE_URL}/theses?${params.toString()}`, {
+      cache: 'no-store',
     });
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch (error) {
+    console.error('Failed to fetch theses from live backend:', error);
   }
-
-  const total = filtered.length;
-  const totalPages = Math.ceil(total / pageSize);
-  const startIndex = (page - 1) * pageSize;
-  const pagedData = filtered.slice(startIndex, startIndex + pageSize);
 
   return {
-    data: pagedData,
-    total,
-    page,
-    pageSize,
-    totalPages,
+    data: [],
+    total: 0,
+    page: options.page || 1,
+    pageSize: options.pageSize || 20,
+    totalPages: 0,
   };
 }
 
 /**
- * Fetch aggregated KPI statistics for dashboard
+ * Fetch aggregated KPI statistics computed in real-time by live database
  */
 export async function getDashboardKPIs(): Promise<DashboardKPIs> {
-  await delay(30);
-  return calculateDashboardKPIs(currentStudents);
+  try {
+    const res = await fetch(`${BACKEND_BASE_URL}/dashboard/kpis`, { cache: 'no-store' });
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch (error) {
+    console.error('Failed to fetch KPIs from live backend:', error);
+  }
+
+  return {
+    totalStudents: 0,
+    activeStudents: 0,
+    attendanceWarningCount: 0,
+    examProhibitedCount: 0,
+    totalTheses: 0,
+    completedMilestonesRate: 0,
+    averageGpa: 0,
+  };
 }
 
 /**
- * Update milestone status of a thesis
+ * Update milestone status of a thesis in live MongoDB
  */
 export async function updateThesisMilestone(
   thesisId: string,
   milestoneId: string,
   status: MilestoneStatus,
-  aiFeedback?: string
+  aiFeedback?: string,
 ): Promise<boolean> {
-  await delay(80);
-  const thesis = currentTheses.find((t) => t._id === thesisId);
-  if (!thesis) return false;
+  try {
+    const res = await fetch(
+      `${BACKEND_BASE_URL}/theses/${encodeURIComponent(thesisId)}/milestones/${encodeURIComponent(milestoneId)}`,
+      {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status, aiFeedback }),
+      },
+    );
 
-  const milestone = thesis.milestones.find((m) => m._id === milestoneId);
-  if (!milestone) return false;
-
-  milestone.status = status;
-  if (aiFeedback) {
-    milestone.aiFeedback = aiFeedback;
+    if (res.ok) {
+      const data = await res.json();
+      return Boolean(data.success);
+    }
+  } catch (error) {
+    console.error('Failed to update thesis milestone on live backend:', error);
   }
-
-  const completed = thesis.milestones.filter((m) => m.status === 'COMPLETED').length;
-  thesis.progressPercent = Math.round((completed / thesis.milestones.length) * 100);
-  thesis.defenseStatus = thesis.progressPercent >= 75 ? 'ELIGIBLE' : 'NOT_ELIGIBLE';
-  thesis.updatedAt = new Date().toISOString();
-
-  return true;
+  return false;
 }
 
 /**
- * Call backend AI RAG assistant (/ai/ask) with graceful fallback
+ * Fetch courses from live Supabase
+ */
+export async function fetchCourses(): Promise<any[]> {
+  try {
+    const res = await fetch(`${BACKEND_BASE_URL}/courses`, { cache: 'no-store' });
+    if (res.ok) return await res.json();
+  } catch (error) {
+    console.error('Failed to fetch courses from live backend:', error);
+  }
+  return [];
+}
+
+/**
+ * Fetch class sections with live enrollment headcount from Supabase
+ */
+export async function fetchClassSections(): Promise<any[]> {
+  try {
+    const res = await fetch(`${BACKEND_BASE_URL}/class-sections`, { cache: 'no-store' });
+    if (res.ok) return await res.json();
+  } catch (error) {
+    console.error('Failed to fetch class sections from live backend:', error);
+  }
+  return [];
+}
+
+/**
+ * Fetch attendance audit / history from Supabase
+ */
+export async function fetchAttendanceHistory(classSectionId?: string): Promise<any> {
+  try {
+    const url = classSectionId
+      ? `${BACKEND_BASE_URL}/attendance/history?class_section_id=${encodeURIComponent(classSectionId)}`
+      : `${BACKEND_BASE_URL}/attendance/history`;
+    const res = await fetch(url, { cache: 'no-store' });
+    if (res.ok) return await res.json();
+  } catch (error) {
+    console.error('Failed to fetch attendance history from live backend:', error);
+  }
+  return { data: [], total: 0 };
+}
+
+/**
+ * Call backend AI RAG assistant (/ai/ask)
  */
 export async function askAcademicAI(question: string) {
   try {
@@ -340,33 +289,50 @@ export async function askAcademicAI(question: string) {
     if (response.ok) {
       return await response.json();
     }
-  } catch {
-    // Graceful fallback when backend NestJS is not running
-  }
-
-  await delay(200);
-  // Realistic fallback structured response
-  const isAttendanceRelated = question.toLowerCase().includes('vắng') || question.toLowerCase().includes('điểm danh');
-  if (isAttendanceRelated) {
-    return {
-      answer:
-        'Theo Quy chế đào tạo và quản lý học vụ Trường VKU, sinh viên vắng quá 20% tổng số tiết của học phần sẽ không đủ điều kiện dự thi kết thúc học phần và nhận điểm F học phần đó.',
-      confidence_score: 0.95,
-      citations: ['Quy chế học vụ VKU - Điều 14 về điều kiện dự thi kết thúc học phần'],
-      requires_human_escalation: false,
-      suggested_actions: [
-        'Kiểm tra bảng tổng hợp điểm danh chi tiết trên Dashboard',
-        'Nộp đơn xin phép có minh chứng nếu vắng có lý do chính đáng',
-      ],
-    };
+  } catch (error) {
+    console.error('Failed to invoke AI RAG assistant:', error);
   }
 
   return {
     answer:
-      'Hệ thống đã tiếp nhận câu hỏi của bạn. Để được hỗ trợ cụ thể về học vụ, đồ án tốt nghiệp hoặc điểm danh, bạn có thể tra cứu theo danh mục trên Dashboard hoặc liên hệ cố vấn học tập.',
-    confidence_score: 0.82,
-    citations: ['Sổ tay học vụ sinh viên VKU 2026'],
-    requires_human_escalation: false,
-    suggested_actions: ['Tra cứu danh sách sinh viên', 'Xem tiến độ đồ án'],
+      'Hệ thống đang bảo trì kết nối AI. Vui lòng thử lại sau ít phút hoặc tra cứu quy chế trực tiếp trên Dashboard.',
+    confidence_score: 0.5,
+    citations: ['Cổng thông tin đào tạo VKU'],
+    requires_human_escalation: true,
+    suggested_actions: ['Tra cứu danh sách sinh viên', 'Liên hệ Cố vấn học tập'],
   };
 }
+
+export interface AcademicWarningScanResponse {
+  success: boolean;
+  total_violations: number;
+  dispatched_count: number;
+  violations: Array<{
+    student_id: string;
+    full_name: string;
+    student_email?: string;
+    gpa: number;
+    absent_rate: number;
+    failed_credits: number;
+    warning_tier: string;
+    advisor_email: string;
+  }>;
+}
+
+/**
+ * Trigger academic warning scan across all students in MongoDB and dispatch alerts to n8n webhook
+ */
+export async function scanAcademicWarnings(limit = 1): Promise<AcademicWarningScanResponse> {
+  const response = await fetch(`${BACKEND_BASE_URL}/academic-warning/scan`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ limit }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Quét cảnh báo học vụ thất bại (${response.status} ${response.statusText})`);
+  }
+
+  return await response.json();
+}
+

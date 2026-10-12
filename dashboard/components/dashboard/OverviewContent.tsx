@@ -11,6 +11,7 @@ import {
 import {
   getTopAttendanceViolators,
   askAcademicAI,
+  scanAcademicWarnings,
 } from '@/lib/api';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
@@ -41,6 +42,9 @@ export const OverviewContent: React.FC<OverviewContentProps> = ({ kpis }) => {
   const [topViolators, setTopViolators] = useState<Student[]>([]);
   const [violatorsLoading, setViolatorsLoading] = useState(true);
 
+  // Scan academic warnings state
+  const [isScanning, setIsScanning] = useState(false);
+
   // AI assistant state
   const [aiQuestion, setAiQuestion] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
@@ -53,10 +57,10 @@ export const OverviewContent: React.FC<OverviewContentProps> = ({ kpis }) => {
   } | null>(null);
 
   // Toast
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const showToast = (msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3500);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 4000);
   };
 
   useEffect(() => {
@@ -65,6 +69,28 @@ export const OverviewContent: React.FC<OverviewContentProps> = ({ kpis }) => {
       setViolatorsLoading(false);
     });
   }, []);
+
+  const handleScanWarnings = async () => {
+    if (isScanning) return;
+    setIsScanning(true);
+    try {
+      const result = await scanAcademicWarnings(1);
+      const violationsCount = result.total_violations ?? result.violations?.length ?? 0;
+      const dispatched = result.dispatched_count ?? 1;
+      showToast(
+        `Đã quét xong: Phát hiện ${violationsCount} sinh viên vi phạm, đã chuyển tiếp ${dispatched} bản ghi mẫu sang n8n!`,
+        'success',
+      );
+    } catch (error: any) {
+      console.error('Lỗi khi quét cảnh báo học vụ:', error);
+      showToast(
+        'Lỗi kết nối máy chủ backend khi quét cảnh báo học vụ! Vui lòng thử lại.',
+        'error',
+      );
+    } finally {
+      setIsScanning(false);
+    }
+  };
 
   const handleAskAI = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -75,23 +101,33 @@ export const OverviewContent: React.FC<OverviewContentProps> = ({ kpis }) => {
       const res = await askAcademicAI(aiQuestion);
       setAiResponse(res);
     } catch {
-      showToast('Có lỗi xảy ra khi truy vấn trợ lý AI!');
+      showToast('Có lỗi xảy ra khi truy vấn trợ lý AI!', 'error');
     } finally {
       setAiLoading(false);
     }
   };
 
   const handleSendWebhook = (studentId: string, name: string) => {
-    showToast(`Đã gửi sự kiện ATTENDANCE_WARNING cho ${name} (${studentId}) sang n8n Webhook!`);
+    showToast(`Đã gửi sự kiện ATTENDANCE_WARNING cho ${name} (${studentId}) sang n8n Webhook!`, 'success');
   };
 
   return (
     <>
       {/* Toast Notification */}
-      {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-xl border border-slate-700 flex items-center gap-3 text-xs animate-in slide-in-from-bottom-2 duration-200">
-          <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
-          <span>{toastMessage}</span>
+      {toast && (
+        <div
+          className={`fixed bottom-6 right-6 z-50 px-4 py-3 rounded-xl shadow-xl border flex items-center gap-3 text-xs animate-in slide-in-from-bottom-2 duration-200 ${
+            toast.type === 'error'
+              ? 'bg-rose-950 text-rose-100 border-rose-800'
+              : 'bg-slate-900 text-white border-slate-700'
+          }`}
+        >
+          {toast.type === 'error' ? (
+            <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+          ) : (
+            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+          )}
+          <span>{toast.message}</span>
         </div>
       )}
 
@@ -122,11 +158,16 @@ export const OverviewContent: React.FC<OverviewContentProps> = ({ kpis }) => {
                 Xem {kpis.totalStudents} sinh viên
               </Button>
             </Link>
-            <Link href="/attendance">
-              <Button variant="white" size="sm">
-                Xử lý cảnh báo
-              </Button>
-            </Link>
+            <Button
+              type="button"
+              variant="white"
+              size="sm"
+              disabled={isScanning}
+              isLoading={isScanning}
+              onClick={handleScanWarnings}
+            >
+              {isScanning ? 'Đang xử lý...' : 'Xử lý cảnh báo'}
+            </Button>
           </div>
         </div>
 
