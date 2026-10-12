@@ -12,6 +12,7 @@ import {
   getTopAttendanceViolators,
   askAcademicAI,
   scanAcademicWarnings,
+  type AcademicWarningScanResponse,
 } from '@/lib/api';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
@@ -44,6 +45,9 @@ export const OverviewContent: React.FC<OverviewContentProps> = ({ kpis }) => {
 
   // Scan academic warnings state
   const [isScanning, setIsScanning] = useState(false);
+  const [scanLimit, setScanLimit] = useState(0);
+  const [scanResult, setScanResult] = useState<AcademicWarningScanResponse | null>(null);
+  const [scanError, setScanError] = useState('');
 
   // AI assistant state
   const [aiQuestion, setAiQuestion] = useState('');
@@ -73,15 +77,18 @@ export const OverviewContent: React.FC<OverviewContentProps> = ({ kpis }) => {
   const handleScanWarnings = async () => {
     if (isScanning) return;
     setIsScanning(true);
+    setScanError('');
     try {
-      const result = await scanAcademicWarnings(1);
+      const result = await scanAcademicWarnings(scanLimit);
+      setScanResult(result);
       const violationsCount = result.total_violations ?? result.violations?.length ?? 0;
-      const dispatched = result.dispatched_count ?? 1;
+      const dispatched = result.dispatched_count ?? 0;
       showToast(
-        `Đã quét xong: Phát hiện ${violationsCount} sinh viên vi phạm, đã chuyển tiếp ${dispatched} bản ghi mẫu sang n8n!`,
+        `Phát hiện ${violationsCount} sinh viên cần cảnh báo; đã chuyển ${dispatched} bản ghi sang n8n.`,
         'success',
       );
     } catch (error: any) {
+      setScanError(error instanceof Error ? error.message : 'Không quét được cảnh báo.');
       console.error('Lỗi khi quét cảnh báo học vụ:', error);
       showToast(
         'Lỗi kết nối máy chủ backend khi quét cảnh báo học vụ! Vui lòng thử lại.',
@@ -107,10 +114,6 @@ export const OverviewContent: React.FC<OverviewContentProps> = ({ kpis }) => {
     }
   };
 
-  const handleSendWebhook = (studentId: string, name: string) => {
-    showToast(`Đã gửi sự kiện ATTENDANCE_WARNING cho ${name} (${studentId}) sang n8n Webhook!`, 'success');
-  };
-
   return (
     <>
       {/* Toast Notification */}
@@ -132,19 +135,16 @@ export const OverviewContent: React.FC<OverviewContentProps> = ({ kpis }) => {
       )}
 
       <div className="space-y-6">
-        {/* ============ Welcome Banner ============ */}
-        <div className="p-6 rounded-2xl bg-gradient-to-r from-blue-700 via-blue-600 to-indigo-700 text-white shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="service-page flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 mb-1">
-              <span className="px-2 py-0.5 rounded-full bg-white/20 text-[11px] font-semibold backdrop-blur-xs">
+              <span className="text-xs text-[var(--muted)]">
                 Học kỳ 1 • 2026-2027
               </span>
-              <span className="text-blue-100 text-xs">Cập nhật 10 phút trước</span>
             </div>
             <h2 className="text-xl font-bold">Hệ thống Cố vấn Học vụ VKU AI</h2>
-            <p className="text-xs text-blue-100 mt-1 max-w-xl leading-relaxed">
-              Giám sát tự động {kpis.totalStudents} sinh viên, phát hiện nguy cơ cấm thi theo Quy chế VKU Điều 14,
-              và theo dõi đồ án tốt nghiệp với trợ lý Google Gemini RAG.
+            <p className="text-sm text-[var(--muted)]">
+              Theo dõi sinh viên, cảnh báo học vụ và tiến độ đồ án.
             </p>
           </div>
 
@@ -153,7 +153,7 @@ export const OverviewContent: React.FC<OverviewContentProps> = ({ kpis }) => {
               <Button
                 variant="outline"
                 size="sm"
-                className="bg-white/10 hover:bg-white/20 text-white border-white/30"
+                className="border-[var(--border)] text-[var(--primary)]"
               >
                 Xem {kpis.totalStudents} sinh viên
               </Button>
@@ -170,6 +170,18 @@ export const OverviewContent: React.FC<OverviewContentProps> = ({ kpis }) => {
             </Button>
           </div>
         </div>
+
+        <section className="service-page" aria-label="Kết quả cảnh báo học vụ">
+          <label>Giới hạn chuyển cảnh báo tới n8n<select value={scanLimit} disabled={isScanning} onChange={e => setScanLimit(Number(e.target.value))}>
+            <option value={0}>Chỉ quét, chưa gửi thông báo</option><option value={1}>Gửi tối đa 1 sinh viên</option><option value={5}>Gửi tối đa 5 sinh viên</option><option value={20}>Gửi tối đa 20 sinh viên</option>
+          </select></label>
+          {scanError && <p className="service-error" role="alert">{scanError}</p>}
+          {isScanning ? <div className="service-loading" role="status">Đang quét cảnh báo…</div> : scanResult ? <>
+            <p role="status">{scanResult.total_violations} sinh viên cần cảnh báo · Đã chuyển {scanResult.dispatched_count}/{Math.min(scanLimit,scanResult.total_violations)} thông báo tới n8n.</p>
+            {scanResult.dispatched_count < Math.min(scanLimit,scanResult.total_violations) && <p className="service-error">Một số thông báo chưa chuyển được. Kiểm tra kết nối n8n trước khi gửi lại.</p>}
+            {!scanResult.violations.length ? <p>Không phát hiện vi phạm trong lần quét này.</p> : <div className="overflow-x-auto"><table className="w-full text-left"><thead><tr><th>MSSV</th><th>Họ tên</th><th>GPA</th><th>Vắng (%)</th><th>Mức cảnh báo</th></tr></thead><tbody>{scanResult.violations.map(s => <tr key={s.student_id} className="border-b border-[var(--border)]"><td className="py-3">{s.student_id}</td><td>{s.full_name}</td><td>{s.gpa}</td><td>{s.absent_rate}</td><td>{s.warning_tier.replace('TIER_','Mức ')}</td></tr>)}</tbody></table></div>}
+          </> : <p>Bấm Xử lý cảnh báo để xem kết quả.</p>}
+        </section>
 
         {/* ============ KPI Stat Cards ============ */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -304,13 +316,13 @@ export const OverviewContent: React.FC<OverviewContentProps> = ({ kpis }) => {
                         >
                           {pct}% vắng
                         </Badge>
-                        <button
-                          onClick={() => handleSendWebhook(s.studentId, s.fullName)}
+                        <Link
+                          href={`/students?search=${encodeURIComponent(s.studentId)}`}
                           className="text-[10px] font-semibold text-blue-600 hover:text-blue-800 hover:underline cursor-pointer"
-                          title="Gửi webhook n8n"
+                          title="Xem hồ sơ sinh viên"
                         >
-                          Gửi n8n
-                        </button>
+                          Xem hồ sơ
+                        </Link>
                       </div>
                     </div>
                   );

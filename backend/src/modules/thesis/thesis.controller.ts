@@ -1,4 +1,14 @@
-import { Body, Controller, Get, Param, Patch, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
+import { InternalApiGuard } from '../webhook/internal-api.guard';
 import { ThesisService, ThesisFilterDto } from './thesis.service';
 
 @Controller('theses')
@@ -22,5 +32,20 @@ export class ThesisController {
       body.status,
       body.aiFeedback,
     );
+  }
+}
+
+@Controller('internal/theses')
+@UseGuards(InternalApiGuard)
+export class ThesisFeedbackController {
+  constructor(private readonly service: ThesisService) {}
+
+  @Post(':id/milestones/:milestoneId/feedback')
+  save(
+    @Param('id') id: string,
+    @Param('milestoneId') milestoneId: string,
+    @Body() body: any,
+  ) {
+    return this.service.saveFeedback(id, milestoneId, body?.aiFeedback);
   }
 }

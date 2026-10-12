@@ -13,6 +13,7 @@ import { AcademicWarningModule } from './modules/academic-warning/academic-warni
 import { AttendanceModule } from './modules/attendance/attendance.module';
 import { CourseRegistrationModule } from './modules/course-registration/course-registration.module';
 import { StudentModule } from './modules/student/student.module';
+import { FaqController } from './faq.controller';
 
 @Module({
   imports: [
@@ -50,7 +51,7 @@ import { StudentModule } from './modules/student/student.module';
     CourseRegistrationModule,
     StudentModule,
   ],
-  controllers: [AppController],
+  controllers: [AppController, FaqController],
   providers: [AppService],
 })
 export class AppModule {}

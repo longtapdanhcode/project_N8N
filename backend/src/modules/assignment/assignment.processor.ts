@@ -1,5 +1,8 @@
-import { Processor, WorkerHost } from '@nestjs/bullmq';
-import { Logger } from '@nestjs/common';
+import { OnWorkerEvent, Processor, WorkerHost } from '@nestjs/bullmq';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
+import { Submission } from './submission.schema';
+import { ConfigService } from '@nestjs/config';
 import { Job } from 'bullmq';
 import { WebhookService } from '../webhook/webhook.service';
 
@@ -14,53 +17,36 @@ export interface AssignmentJobPayload {
 
 @Processor('submission-queue')
 export class AssignmentProcessor extends WorkerHost {
-  private readonly logger = new Logger(AssignmentProcessor.name);
-
-  constructor(private readonly webhookService: WebhookService) {
+  constructor(
+    private readonly webhook: WebhookService,
+    private readonly config: ConfigService,
+    @InjectModel('Submission') private readonly model: Model<Submission>,
+  ) {
     super();
   }
 
-  /**
-   * BullMQ processor worker handling AI-heavy assignment analysis jobs.
-   *
-   * @param job BullMQ Job containing the assignment submission payload
-   */
-  async process(job: Job<AssignmentJobPayload, any, string>): Promise<any> {
-    this.logger.log(`[Job ${job.id}] Started processing AI assignment submission for student: ${job.data?.studentId ?? 'N/A'}`);
+  async process(job: Job<AssignmentJobPayload>) {
+    const url = this.config.get<string>('N8N_ASSIGNMENT_URL');
+    if (!url) throw new Error('Thiếu N8N_ASSIGNMENT_URL');
+    const result = await this.webhook.sendToN8n(
+      { ...job.data, event: 'ASSIGNMENT_ANALYZED' },
+      'ASSIGNMENT_ANALYZED',
+      url,
+      0,
+      120000,
+    );
+    if (!result.success)
+      throw new Error(`Workflow bài nộp thất bại: HTTP ${result.statusCode}`);
+    return result.data;
+  }
 
-    // Simulate heavy AI model analysis execution (e.g., LLM code/essay evaluation, semantic similarity checks)
-    const simulatedAiResult = {
-      jobId: job.id,
-      submissionId: job.data?.submissionId ?? `sub-${job.id}`,
-      studentId: job.data?.studentId ?? 'student-unknown',
-      assignmentTitle: job.data?.assignmentTitle ?? 'AI Systems Capstone',
-      evaluation: {
-        score: 95,
-        confidence: 0.98,
-        rubricAssessment: [
-          { criterion: 'Architecture & Design', grade: 'A', remarks: 'Excellent decoupling and queue topology.' },
-          { criterion: 'Security & HMAC', grade: 'A+', remarks: 'Tamper-proof HMAC-SHA256 signature implemented.' },
-        ],
-        aiFeedback: 'Your architecture demonstrates senior-level modularity and robust stream buffering.',
-      },
-      analyzedAt: new Date().toISOString(),
-    };
-
-    this.logger.log(`[Job ${job.id}] AI analysis complete. Forwarding event to WebhookService (n8n)...`);
-
-    // Simulate sending data to the WebhookService for n8n workflow triggering
-    try {
-      const webhookResponse = await this.webhookService.sendToN8n(
-        simulatedAiResult,
-        'ASSIGNMENT_ANALYZED',
+  @OnWorkerEvent('failed')
+  async onFailed(job?: Job<AssignmentJobPayload>) {
+    if (job && job.attemptsMade >= (job.opts.attempts ?? 1)) {
+      await this.model.updateOne(
+        { _id: job.data.submissionId, status: { $ne: 'COMPLETED' } },
+        { $set: { status: 'FAILED' } },
       );
-      this.logger.log(`[Job ${job.id}] Webhook dispatch completed with status: ${webhookResponse.statusCode}`);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      this.logger.warn(`[Job ${job.id}] Webhook dispatch failed but AI task succeeded: ${message}`);
-      // Gracefully handle or throw depending on queue retry policies
     }
-
-    return simulatedAiResult;
   }
 }

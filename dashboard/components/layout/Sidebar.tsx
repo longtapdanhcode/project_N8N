@@ -15,7 +15,7 @@ import {
   GraduationCap,
 } from 'lucide-react';
 
-export type NavTab = 'overview' | 'students' | 'attendance' | 'thesis' | 'settings';
+export type NavTab = 'overview' | 'students' | 'attendance' | 'thesis' | 'settings' | 'documents';
 
 interface SidebarProps {
   activeTab?: NavTab;
@@ -48,6 +48,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     icon: React.ReactNode;
     badge?: number;
   }[] = [
+    {id:'documents',label:'Kho tài liệu',href:'/documents',icon:<BookOpenCheck className="w-5 h-5 flex-shrink-0" />},
     {
       id: 'overview',
       label: 'Tổng quan',

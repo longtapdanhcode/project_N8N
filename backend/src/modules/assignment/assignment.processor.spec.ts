@@ -2,6 +2,8 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { Job } from 'bullmq';
 import { AssignmentProcessor } from './assignment.processor';
 import { WebhookService } from '../webhook/webhook.service';
+import { ConfigService } from '@nestjs/config';
+import { getModelToken } from '@nestjs/mongoose';
 
 describe('AssignmentProcessor', () => {
   let processor: AssignmentProcessor;
@@ -12,9 +14,19 @@ describe('AssignmentProcessor', () => {
       providers: [
         AssignmentProcessor,
         {
+          provide: getModelToken('Submission'),
+          useValue: { updateOne: jest.fn() },
+        },
+        {
+          provide: ConfigService,
+          useValue: { get: () => 'http://n8n/webhook/assignment-analyzed' },
+        },
+        {
           provide: WebhookService,
           useValue: {
-            sendToN8n: jest.fn().mockResolvedValue({ success: true, statusCode: 200 }),
+            sendToN8n: jest
+              .fn()
+              .mockResolvedValue({ success: true, statusCode: 200 }),
           },
         },
       ],
@@ -24,7 +36,7 @@ describe('AssignmentProcessor', () => {
     webhookService = module.get<WebhookService>(WebhookService);
   });
 
-  it('should process job and forward simulated AI result to WebhookService', async () => {
+  it('forwards the saved submission IDs to n8n without inventing a grade', async () => {
     const mockJob = {
       id: 'job-101',
       name: 'evaluate-submission',
@@ -38,17 +50,46 @@ describe('AssignmentProcessor', () => {
     const sendToN8nSpy = jest.spyOn(webhookService, 'sendToN8n');
     const result = await processor.process(mockJob);
 
-    expect(result).toBeDefined();
-    expect(result.jobId).toBe('job-101');
-    expect(result.studentId).toBe('std-789');
-    expect(result.evaluation.score).toBe(95);
-
     expect(sendToN8nSpy).toHaveBeenCalledWith(
       expect.objectContaining({
-        jobId: 'job-101',
+        event: 'ASSIGNMENT_ANALYZED',
+        submissionId: 'sub-456',
         studentId: 'std-789',
       }),
       'ASSIGNMENT_ANALYZED',
+      'http://n8n/webhook/assignment-analyzed',
+      0,
+      120000,
+    );
+  });
+
+  it('throws when n8n fails so BullMQ retries instead of marking the job successful', async () => {
+    jest
+      .spyOn(webhookService, 'sendToN8n')
+      .mockResolvedValue({ success: false, statusCode: 504 });
+    await expect(
+      processor.process({
+        data: { submissionId: 'sub-1', studentId: 'sv-1' },
+      } as Job),
+    ).rejects.toThrow('504');
+  });
+
+  it('marks exhausted jobs failed without overwriting completed feedback', async () => {
+    const model = (processor as any).model;
+    await processor.onFailed({
+      data: { submissionId: 'sub-1' },
+      attemptsMade: 1,
+      opts: { attempts: 3 },
+    } as Job);
+    expect(model.updateOne).not.toHaveBeenCalled();
+    await processor.onFailed({
+      data: { submissionId: 'sub-1' },
+      attemptsMade: 3,
+      opts: { attempts: 3 },
+    } as Job);
+    expect(model.updateOne).toHaveBeenCalledWith(
+      { _id: 'sub-1', status: { $ne: 'COMPLETED' } },
+      { $set: { status: 'FAILED' } },
     );
   });
 });

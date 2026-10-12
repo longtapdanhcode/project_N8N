@@ -1,0 +1,395 @@
+{
+  "name": "VKU - Card 5.1 - FAQ Agent (12 nodes)",
+  "nodes": [
+    {
+      "id": "1",
+      "name": "Nhận câu hỏi",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        240
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "student-faq",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "webhookId": "vku-student-faq"
+    },
+    {
+      "id": "2",
+      "name": "Chuẩn hóa câu hỏi",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        240,
+        240
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "question",
+              "name": "question",
+              "value": "={{ typeof $json.body?.question === 'string' ? $json.body.question.trim() : '' }}",
+              "type": "string"
+            },
+            {
+              "id": "student-id",
+              "name": "studentId",
+              "value": "={{ String($json.body?.studentId ?? '') }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "3",
+      "name": "Có câu hỏi?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        480,
+        240
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "valid-question",
+              "leftValue": "={{ $json.question.length }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "4",
+      "name": "Trả lỗi 400",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        720,
+        440
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"error\":\"Vui lòng nhập câu hỏi.\"}",
+        "options": {
+          "responseCode": 400
+        }
+      }
+    },
+    {
+      "id": "5",
+      "name": "Tạo embedding",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        720,
+        140
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: 'models/gemini-embedding-001', content: { parts: [{ text: $json.question }] }, embedContentConfig: { outputDimensionality: 768 } }) }}",
+        "options": {
+          "timeout": 20000
+        }
+      }
+    },
+    {
+      "id": "6",
+      "name": "Kiểm tra vector",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        140
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const values = $input.first().json.embedding?.values;\nif (!Array.isArray(values) || values.length !== 768) throw new Error('Gemini không trả vector 768 chiều');\nreturn [{ json: { question: $('Chuẩn hóa câu hỏi').first().json.question, embedding: values } }];"
+      }
+    },
+    {
+      "id": "7",
+      "name": "Tìm tài liệu",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1200,
+        140
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://YOUR_PROJECT.supabase.co/rest/v1/rpc/hybrid_search_rrf",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpCustomAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ query_text: $json.question, query_embedding: $json.embedding, match_count: 5 }) }}",
+        "options": {
+          "timeout": 20000,
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "8",
+      "name": "Có tài liệu?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1440,
+        140
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "has-docs",
+              "leftValue": "={{ $json.body.length }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "9",
+      "name": "Tạo ngữ cảnh",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1680,
+        140
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const body = $('Tìm tài liệu').first().json.body;\nconst docs = Array.isArray(body) ? body.slice(0, 5) : [];\nconst context = docs.map((d, i) => `[${i + 1}] ${d.title ?? 'Tài liệu'}\\n${String(d.content ?? '').slice(0, 3000)}`).join('\\n\\n');\nreturn [{ json: { question: $('Chuẩn hóa câu hỏi').first().json.question, studentId: $('Chuẩn hóa câu hỏi').first().json.studentId, context, sources: docs.map(d => ({ id: d.id, title: d.title })), hasSources: docs.length > 0 } }];"
+      }
+    },
+    {
+      "id": "10",
+      "name": "Gemini trả lời",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1920,
+        140
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ contents: [{ parts: [{ text: 'Bạn là trợ lý sinh viên VKU. Chỉ trả lời dựa trên tài liệu bên dưới. Nếu không có căn cứ, nói không biết. Trả về JSON với answer (chuỗi), confidence (số 0..1), needsEscalation (boolean).\\nCâu hỏi: ' + $json.question + '\\nTài liệu:\\n' + ($json.context || '(không có tài liệu)') }] }], generationConfig: { responseMimeType: 'application/json' } }) }}",
+        "options": {
+          "timeout": 20000
+        }
+      }
+    },
+    {
+      "id": "11",
+      "name": "Kiểm tra kết quả",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2160,
+        140
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const raw = $input.first().json.candidates?.[0]?.content?.parts?.[0]?.text;\nif (!raw) throw new Error('Gemini không trả nội dung');\nlet result;\ntry { result = JSON.parse(raw); } catch { throw new Error('Gemini trả JSON không hợp lệ'); }\nconst prior = $('Tạo ngữ cảnh').first().json;\nconst confidence = Number(result.confidence);\nconst needsEscalation = !prior.hasSources || !Number.isFinite(confidence) || confidence < 0.6 || result.needsEscalation === true;\nreturn [{ json: { answer: needsEscalation ? 'Chưa đủ thông tin để trả lời chắc chắn. Vui lòng liên hệ cố vấn học tập.' : String(result.answer ?? ''), confidence: Number.isFinite(confidence) ? Math.max(0, Math.min(1, confidence)) : 0, needsEscalation, sources: prior.sources, studentId: prior.studentId } }];"
+      }
+    },
+    {
+      "id": "12",
+      "name": "Trả kết quả",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        2400,
+        140
+      ],
+      "parameters": {
+        "respondWith": "firstIncomingItem",
+        "options": {
+          "responseCode": 200
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Nhận câu hỏi": {
+      "main": [
+        [
+          {
+            "node": "Chuẩn hóa câu hỏi",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Chuẩn hóa câu hỏi": {
+      "main": [
+        [
+          {
+            "node": "Có câu hỏi?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Có câu hỏi?": {
+      "main": [
+        [
+          {
+            "node": "Tạo embedding",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Trả lỗi 400",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tạo embedding": {
+      "main": [
+        [
+          {
+            "node": "Kiểm tra vector",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Kiểm tra vector": {
+      "main": [
+        [
+          {
+            "node": "Tìm tài liệu",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tìm tài liệu": {
+      "main": [
+        [
+          {
+            "node": "Có tài liệu?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Có tài liệu?": {
+      "main": [
+        [
+          {
+            "node": "Tạo ngữ cảnh",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Tạo ngữ cảnh",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tạo ngữ cảnh": {
+      "main": [
+        [
+          {
+            "node": "Gemini trả lời",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini trả lời": {
+      "main": [
+        [
+          {
+            "node": "Kiểm tra kết quả",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Kiểm tra kết quả": {
+      "main": [
+        [
+          {
+            "node": "Trả kết quả",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false
+}

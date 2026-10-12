@@ -57,3 +57,26 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
 }
+
+/* Shared tokens for service screens. */
+:root { --primary: #203870; --primary-hover: #1A2D5A; --primary-soft: #E8ECF5; --danger: #C02030; --bg: #F6F7F9; --surface: #FFFFFF; --border: #E3E6EB; --text: #1B2230; --muted: #5B6577; }
+.service-page { color: var(--text); font-size: 14px; line-height: 1.7; font-variant-numeric: tabular-nums; }
+.service-page h2 { font-size: 20px; font-weight: 600; margin-bottom: 16px; }
+.service-page h3 { font-size: 16px; font-weight: 600; margin: 16px 0 8px; }
+.service-page p { margin: 8px 0 16px; }
+.service-page form { display: grid; gap: 16px; margin: 24px 0; }
+.service-page label { display: grid; gap: 8px; }
+.service-page input, .service-page select, .service-page textarea { width: 100%; border: 1px solid var(--border); background: var(--surface); border-radius: 6px; padding: 12px; font: inherit; }
+.service-page button { padding: 8px 16px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--primary); cursor: pointer; min-height: 40px; }
+.service-page form > button { justify-self: start; background: var(--primary); color: var(--surface); }
+.service-page button:disabled { opacity: .5; cursor: default; }
+.service-page :focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.service-toolbar { display: flex; gap: 16px; flex-wrap: wrap; align-items: center; justify-content: space-between; margin: 16px 0; }
+.service-list { border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
+.service-list > * { padding: 16px; border-bottom: 1px solid var(--border); }
+.service-list > :last-child { border-bottom: 0; }
+.service-list summary { cursor: pointer; }
+.service-error { color: var(--danger); }
+.service-loading { height: 96px; background: var(--border); border-radius: 6px; padding: 24px; }
+.service-dialog { border: 1px solid var(--border); border-radius: 8px; padding: 24px; width: min(680px, calc(100vw - 32px)); max-height: 90vh; margin: auto; background: var(--surface); }
+.service-dialog::backdrop { background: rgb(27 34 48 / 40%); }

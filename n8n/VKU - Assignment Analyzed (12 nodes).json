@@ -1,0 +1,440 @@
+{
+  "name": "VKU - Assignment Analyzed (12 nodes)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "assignment-analyzed",
+        "responseMode": "responseNode",
+        "options": {
+          "rawBody": true
+        }
+      },
+      "id": "2d96c9ba-c9c0-4d4a-9011-83a2f6822da9",
+      "name": "Nhận sự kiện",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "d51eb4ff-3e8e-42b5-815c-905a53857627"
+    },
+    {
+      "parameters": {
+        "jsCode": "const crypto = require('crypto');\nconst item = $input.first();\nconst signature = item.json.headers?.['x-signature'];\nconst secret = $env.WEBHOOK_SECRET;\nlet valid = false;\nlet body = {};\nif (secret && typeof signature === 'string' && /^[0-9a-f]{64}$/i.test(signature) && item.binary?.data) {\n  const raw = await this.helpers.getBinaryDataBuffer(0, 'data');\n  const expected = crypto.createHmac('sha256', secret).update(raw).digest();\n  valid = crypto.timingSafeEqual(Buffer.from(signature, 'hex'), expected);\n  if (valid) {\n    try { body = JSON.parse(raw.toString('utf8')); } catch { valid = false; }\n  }\n}\nreturn [{ json: { valid, body } }];"
+      },
+      "id": "86e8082e-ae45-44c0-b656-11324e8a83c2",
+      "name": "Kiểm tra HMAC",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "b4f59155-20a2-4c5a-9769-43f545d8b1f3",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "ea6eed6b-5277-4593-ba39-2b0b0b84ce14",
+      "name": "Chữ ký hợp lệ?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        480,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: false, error: 'invalid_signature' }) }}",
+        "options": {
+          "responseCode": 401
+        }
+      },
+      "id": "ce07c382-6eaf-4456-aad1-6eb5da59087d",
+      "name": "Trả lời 401",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        720,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "72f79b1f-e372-4485-92b7-ab92736f7359",
+                    "leftValue": "={{ $json.body?.event }}",
+                    "rightValue": "ASSIGNMENT_ANALYZED",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "ASSIGNMENT_ANALYZED"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "id": "b43e9988-c186-48b8-8ce3-cfa5f1b6ff4e",
+      "name": "Phân loại sự kiện",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        720,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "017cbfbc-df09-4832-a7e7-e33ea784e01e",
+              "leftValue": "={{ String($json.body?.submissionId ?? '') }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "148dcb99-699b-4734-87c0-df5c19f40f7c",
+              "leftValue": "={{ String($json.body?.studentId ?? '') }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "51d5ef53-8253-4723-a811-2b53da81a63f",
+      "name": "Đủ ID?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        960,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: false, error: $json.body?.event === 'ASSIGNMENT_ANALYZED' ? 'missing_submissionId_or_studentId' : 'unsupported_event' }) }}",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "id": "40e07f1d-c559-43b4-b151-955a30bed649",
+      "name": "Trả lời 400",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1200,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ ($env.NESTJS_BASE_URL || 'http://localhost:3001') + '/api/internal/submissions/' + encodeURIComponent($('Nhận sự kiện').first().json.body.submissionId) }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "4f335dea-e265-45aa-8e31-54d0ed1b4bb2",
+      "name": "Lấy bài nộp",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1200,
+        0
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  systemInstruction: { parts: [{ text: \"Bạn là trợ lý nhận xét bài nộp của sinh viên. Dựa trên dữ liệu bài nộp được cung cấp, đưa ra nhận xét khách quan, cụ thể, mang tính xây dựng, bằng tiếng Việt. Không bịa thông tin không có trong dữ liệu. Điểm chấm theo thang 0 đến 10.\" }] },\n  contents: [{ role: \"user\", parts: [{ text: \"Thông tin sự kiện:\\n\" + JSON.stringify($('Nhận sự kiện').first().json.body) + \"\\n\\nDữ liệu bài nộp:\\n\" + JSON.stringify($json).slice(0, 30000) }] }],\n  generationConfig: {\n    temperature: 0.3,\n    responseMimeType: \"application/json\",\n    responseSchema: {\n      type: \"OBJECT\",\n      properties: {\n        summary: { type: \"STRING\" },\n        score: { type: \"NUMBER\" },\n        strengths: { type: \"ARRAY\", items: { type: \"STRING\" } },\n        weaknesses: { type: \"ARRAY\", items: { type: \"STRING\" } },\n        suggestions: { type: \"ARRAY\", items: { type: \"STRING\" } }\n      },\n      required: [\"summary\", \"score\", \"strengths\", \"weaknesses\", \"suggestions\"]\n    }\n  }\n}) }}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "084c7607-4123-43bd-8ee1-dced7d723802",
+      "name": "Gemini nhận xét",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1440,
+        0
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "HSKBHWn7fviKy8k9",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ ($env.NESTJS_BASE_URL || 'http://localhost:3001') + '/api/internal/submissions/' + encodeURIComponent($('Nhận sự kiện').first().json.body.submissionId) + '/ai-feedback' }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ submissionId: $('Nhận sự kiện').first().json.body.submissionId, studentId: $('Nhận sự kiện').first().json.body.studentId, model: 'gemini-3.6-flash', feedback: JSON.parse($('Gemini nhận xét').first().json.candidates[0].content.parts.filter(p => !p.thought).map(p => p.text).join('')) }) }}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "79c787bb-1333-4847-8065-1bf81363b17a",
+      "name": "Lưu kết quả",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1680,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ ($env.NESTJS_BASE_URL || 'http://localhost:3001') + '/api/internal/notifications/assignment-analyzed' }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ (() => { const fb = JSON.parse($('Gemini nhận xét').first().json.candidates[0].content.parts.filter(p => !p.thought).map(p => p.text).join('')); return JSON.stringify({ studentId: $('Nhận sự kiện').first().json.body.studentId, submissionId: $('Nhận sự kiện').first().json.body.submissionId, status: 'COMPLETED', score: fb.score, summary: fb.summary }); })() }}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "34041132-a913-479d-96a5-34f8c75d65c9",
+      "name": "Báo kết quả PWA",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1920,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: true, submissionId: $('Nhận sự kiện').first().json.body.submissionId }) }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "d7dc8a72-3672-4f2e-be9c-49a12eea590b",
+      "name": "Trả lời 200",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        2160,
+        0
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Nhận sự kiện": {
+      "main": [
+        [
+          {
+            "node": "Kiểm tra HMAC",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Kiểm tra HMAC": {
+      "main": [
+        [
+          {
+            "node": "Chữ ký hợp lệ?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Chữ ký hợp lệ?": {
+      "main": [
+        [
+          {
+            "node": "Phân loại sự kiện",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Trả lời 401",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Phân loại sự kiện": {
+      "main": [
+        [
+          {
+            "node": "Đủ ID?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Trả lời 400",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Đủ ID?": {
+      "main": [
+        [
+          {
+            "node": "Lấy bài nộp",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Trả lời 400",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lấy bài nộp": {
+      "main": [
+        [
+          {
+            "node": "Gemini nhận xét",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini nhận xét": {
+      "main": [
+        [
+          {
+            "node": "Lưu kết quả",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lưu kết quả": {
+      "main": [
+        [
+          {
+            "node": "Báo kết quả PWA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Báo kết quả PWA": {
+      "main": [
+        [
+          {
+            "node": "Trả lời 200",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "a58b5935-8d6d-46df-9ac4-b1c57aa0d226",
+  "meta": {
+    "instanceId": "48cf37b5dbe4f6cf3bf6a5dbdac974a3691f2dd8afe05a1cf1f35f44e97d0225"
+  },
+  "nodeGroups": [],
+  "id": "s9WgpIcOqrsSkTyF",
+  "tags": []
+}

@@ -29,6 +29,7 @@ export class WebhookService {
     eventType: string,
     overrideUrl?: string,
     maxRetries = 3,
+    timeoutMs = 8000,
   ): Promise<WebhookDeliveryResult> {
     const webhookUrl =
       overrideUrl || this.configService.get<string>('N8N_WEBHOOK_URL');
@@ -63,7 +64,7 @@ export class WebhookService {
 
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 8000);
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
       try {
         const response = await fetch(webhookUrl, {
@@ -119,7 +120,7 @@ export class WebhookService {
         lastError = error;
         const isAbort = error?.name === 'AbortError';
         this.logger.warn(
-          `n8n webhook attempt ${attempt + 1}/${maxRetries + 1} failed: ${isAbort ? 'Timeout after 8000ms' : error?.message || error}`,
+          `n8n webhook attempt ${attempt + 1}/${maxRetries + 1} failed: ${isAbort ? `Timeout after ${timeoutMs}ms` : error?.message || error}`,
         );
 
         if (attempt < maxRetries) {

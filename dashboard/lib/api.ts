@@ -6,7 +6,7 @@ import {
   PaginatedResult, 
   FilterOptions, 
   MilestoneStatus,
-} from '@/types';
+} from '../types';
 
 const BACKEND_BASE_URL =
   process.env.NEXT_PUBLIC_BACKEND_URL ||
@@ -213,24 +213,32 @@ export async function updateThesisMilestone(
   status: MilestoneStatus,
   aiFeedback?: string,
 ): Promise<boolean> {
-  try {
-    const res = await fetch(
-      `${BACKEND_BASE_URL}/theses/${encodeURIComponent(thesisId)}/milestones/${encodeURIComponent(milestoneId)}`,
-      {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status, aiFeedback }),
-      },
-    );
+  const data = await serviceRequest<{success: boolean}>(`/theses/${encodeURIComponent(thesisId)}/milestones/${encodeURIComponent(milestoneId)}`, {method:'PATCH', headers:{'Content-Type':'application/json'},body:JSON.stringify({status,aiFeedback})});
+  return data.success;
+}
 
-    if (res.ok) {
-      const data = await res.json();
-      return Boolean(data.success);
-    }
-  } catch (error) {
-    console.error('Failed to update thesis milestone on live backend:', error);
+async function serviceRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const res = await fetch(`${BACKEND_BASE_URL}${path}`, {...init, cache:'no-store', signal:AbortSignal.timeout(130_000)});
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || `Yêu cầu thất bại (${res.status})`);
+  return data;
+}
+export async function refreshThesis(thesis: Thesis): Promise<Thesis> {
+  for (let page = 1; ; page++) {
+    const result = await serviceRequest<PaginatedResult<Thesis>>(`/theses?search=${encodeURIComponent(thesis.studentId)}&page=${page}&pageSize=50`);
+    const found = result.data.find(t => t._id === thesis._id);
+    if (found) return found;
+    if (page >= result.totalPages) throw new Error('Không tìm thấy đồ án. Hãy tải lại danh sách.');
   }
-  return false;
+}
+export interface KnowledgeDocument {id: string; title: string; content: string; created_at: string}
+export const getDocuments = (offset = 0) => serviceRequest<{data: KnowledgeDocument[]}>(`/documents?limit=20&offset=${offset}`);
+export function ingestDocument(input: {title: string; content: string; category: string}, file?: File) {
+  if (file) {
+    const body = new FormData(); body.append('file',file); body.append('title',input.title); body.append('category',input.category);
+    return serviceRequest<{success:boolean; chunks_created:number}>('/documents/ingest-file',{method:'POST',body});
+  }
+  return serviceRequest<{success:boolean; chunks_created:number}>('/documents/ingest-text',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(input)});
 }
 
 /**

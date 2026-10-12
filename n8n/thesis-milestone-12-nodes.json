@@ -1,0 +1,488 @@
+{
+  "name": "VKU - Mốc đồ án - HMAC Mongo Gemini (12 nodes)",
+  "nodes": [
+    {
+      "id": "1",
+      "name": "Nhận sự kiện mốc",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        240
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "thesis-milestone-updated",
+        "responseMode": "responseNode",
+        "options": {
+          "rawBody": true
+        }
+      },
+      "webhookId": "vku-thesis-milestone-updated"
+    },
+    {
+      "id": "2",
+      "name": "Kiểm tra HMAC",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        240
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const crypto = require('crypto');\nconst item = $input.first();\nconst signature = item.json.headers?.['x-signature'];\nconst eventType = item.json.headers?.['x-event-type'];\nconst secret = $env.WEBHOOK_SECRET;\nlet valid = false;\nlet payload = null;\nif (secret && eventType === 'THESIS_MILESTONE_UPDATED' && typeof signature === 'string' &&\n    /^[0-9a-f]{64}$/i.test(signature) && item.binary?.data) {\n  const raw = await this.helpers.getBinaryDataBuffer(0, 'data');\n  const expected = crypto.createHmac('sha256', secret).update(raw).digest();\n  const actual = Buffer.from(signature, 'hex');\n  valid = crypto.timingSafeEqual(actual, expected);\n  if (valid) {\n    try {\n      payload = JSON.parse(raw.toString('utf8'));\n      valid = typeof payload.thesisId === 'string' &&\n        typeof payload.milestoneId === 'string' &&\n        ['PENDING', 'IN_PROGRESS', 'COMPLETED'].includes(payload.status);\n    } catch { valid = false; }\n  }\n}\nreturn [{ json: { valid, payload: valid ? payload : null } }];"
+      }
+    },
+    {
+      "id": "3",
+      "name": "Chữ ký hợp lệ?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        480,
+        240
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "valid-hmac",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "4",
+      "name": "Trả 401",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        720,
+        440
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"error\":\"Chữ ký hoặc dữ liệu không hợp lệ\"}",
+        "options": {
+          "responseCode": 401
+        }
+      }
+    },
+    {
+      "id": "5",
+      "name": "Lấy dữ liệu mốc",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        720,
+        140
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "thesis-id",
+              "name": "thesisId",
+              "value": "={{ $json.payload.thesisId }}",
+              "type": "string"
+            },
+            {
+              "id": "milestone-id",
+              "name": "milestoneId",
+              "value": "={{ $json.payload.milestoneId }}",
+              "type": "string"
+            },
+            {
+              "id": "status",
+              "name": "status",
+              "value": "={{ $json.payload.status }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "6",
+      "name": "Tìm đồ án MongoDB",
+      "type": "n8n-nodes-base.mongoDb",
+      "typeVersion": 1,
+      "position": [
+        960,
+        140
+      ],
+      "parameters": {
+        "operation": "find",
+        "collection": "theses",
+        "query": "={{ JSON.stringify({ _id: $json.thesisId }) }}",
+        "options": {
+          "limit": 1
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "id": "7",
+      "name": "Có đồ án và mốc?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        140
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "found-milestone",
+              "leftValue": "={{ !!$json._id && Array.isArray($json.milestones) && $json.milestones.some(m => String(m._id) === String($('Lấy dữ liệu mốc').first().json.milestoneId)) }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "8",
+      "name": "Trả 404",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        1440,
+        440
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"error\":\"Không tìm thấy đồ án hoặc mốc, hoặc trạng thái không hợp lệ\"}",
+        "options": {
+          "responseCode": 404
+        }
+      }
+    },
+    {
+      "id": "9",
+      "name": "Theo trạng thái mốc",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.3,
+      "position": [
+        1440,
+        140
+      ],
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "outputKey": "Hoàn thành",
+              "renameOutput": true,
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "completed",
+                    "leftValue": "={{ $('Lấy dữ liệu mốc').first().json.status }}",
+                    "rightValue": "COMPLETED",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "outputKey": "Chờ thực hiện",
+              "renameOutput": true,
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "pending",
+                    "leftValue": "={{ $('Lấy dữ liệu mốc').first().json.status }}",
+                    "rightValue": "PENDING",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "outputKey": "Đang thực hiện",
+              "renameOutput": true,
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "in-progress",
+                    "leftValue": "={{ $('Lấy dữ liệu mốc').first().json.status }}",
+                    "rightValue": "IN_PROGRESS",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      }
+    },
+    {
+      "id": "10",
+      "name": "Gemini tạo phản hồi",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1680,
+        20
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ contents: [{ parts: [{ text: 'Viết phản hồi ngắn bằng tiếng Việt cho sinh viên khi hoàn thành mốc đồ án. Chỉ dựa trên dữ liệu này; không tự đặt điểm số hay nhận xét về chất lượng chưa được cung cấp. Đồ án: ' + $json.title + '\\nMô tả: ' + ($json.description ?? '') + '\\nMốc: ' + ($json.milestones.find(m => String(m._id) === String($('Lấy dữ liệu mốc').first().json.milestoneId))?.title ?? '') }] }] }) }}",
+        "options": {
+          "timeout": 20000
+        }
+      }
+    },
+    {
+      "id": "11",
+      "name": "Lưu phản hồi qua NestJS",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1920,
+        20
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ ($env.NESTJS_BASE_URL || 'http://localhost:3001') + '/internal/theses/' + encodeURIComponent($('Lấy dữ liệu mốc').first().json.thesisId) + '/milestones/' + encodeURIComponent($('Lấy dữ liệu mốc').first().json.milestoneId) + '/feedback' }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ (() => { const text = $json.candidates?.[0]?.content?.parts?.[0]?.text; if (!text) throw new Error('Gemini không trả phản hồi'); return JSON.stringify({ aiFeedback: text }); })() }}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "id": "12",
+      "name": "Trả 200",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        2160,
+        180
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: true, thesisId: $('Lấy dữ liệu mốc').first().json.thesisId, milestoneId: $('Lấy dữ liệu mốc').first().json.milestoneId, status: $('Lấy dữ liệu mốc').first().json.status, aiFeedbackSaved: $('Lấy dữ liệu mốc').first().json.status === 'COMPLETED' }) }}",
+        "options": {
+          "responseCode": 200
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Nhận sự kiện mốc": {
+      "main": [
+        [
+          {
+            "node": "Kiểm tra HMAC",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Kiểm tra HMAC": {
+      "main": [
+        [
+          {
+            "node": "Chữ ký hợp lệ?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Chữ ký hợp lệ?": {
+      "main": [
+        [
+          {
+            "node": "Lấy dữ liệu mốc",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Trả 401",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lấy dữ liệu mốc": {
+      "main": [
+        [
+          {
+            "node": "Tìm đồ án MongoDB",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tìm đồ án MongoDB": {
+      "main": [
+        [
+          {
+            "node": "Có đồ án và mốc?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Có đồ án và mốc?": {
+      "main": [
+        [
+          {
+            "node": "Theo trạng thái mốc",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Trả 404",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Theo trạng thái mốc": {
+      "main": [
+        [
+          {
+            "node": "Gemini tạo phản hồi",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Trả 200",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Trả 200",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Trả 404",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini tạo phản hồi": {
+      "main": [
+        [
+          {
+            "node": "Lưu phản hồi qua NestJS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lưu phản hồi qua NestJS": {
+      "main": [
+        [
+          {
+            "node": "Trả 200",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false
+}
