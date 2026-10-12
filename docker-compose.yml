@@ -24,7 +24,7 @@ services:
     container_name: vku-n8n
     restart: always
     ports:
-      - "5679:5678"
+      - "5678:5678"
     environment:
       - N8N_HOST=vku-n8n.orb.local
       - N8N_PORT=5678
