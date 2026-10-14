@@ -1,3 +1,7 @@
+## Cổng frontend chung — cổng 3000
+
+Chạy `npm run dev` tại thư mục gốc, mở http://localhost:3000 và đăng nhập bằng tài khoản mẫu. Xem [hướng dẫn cổng chung](PORTAL_3000.md). Hướng dẫn này thay thế cách chạy hai cổng frontend riêng bên dưới.
+
 # VKU AI Student Support System (Project N8N)
 
 > Hệ thống Trợ lý AI và Tự động hóa Quy trình Học vụ dành cho Trường Đại học Công nghệ Thông tin và Truyền thông Việt - Hàn (VKU), kết hợp **NestJS**, **Google Gemini**, **Supabase pgvector**, **Redis BullMQ** và **n8n Automation**.
@@ -222,3 +226,4 @@ Dự án tích hợp sẵn các kịch bản kiểm thử độc lập:
 
 Để biết thêm thông tin chi tiết về kiến trúc phân tầng, phân tích bảo mật, sơ đồ lớp và đánh giá vận hành chi tiết, vui lòng xem:
 👉 **[PROJECT_AUDIT.md](./PROJECT_AUDIT.md)**: *Báo cáo toàn diện về kiến trúc, kho mã nguồn và kiểm toán hệ thống VKU AI System.*
+

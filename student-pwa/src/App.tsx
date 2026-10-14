@@ -5,7 +5,13 @@ import {
   WifiOff,
   AlertCircle,
 } from "lucide-react";
-import { getGrades, USE_MOCK, type Grade, type Profile } from "./lib/api";
+import {
+  getGrades,
+  USE_MOCK,
+  logoutPortal,
+  type Grade,
+  type Profile,
+} from "./lib/api";
 import {
   Registration,
   FAQ,
@@ -94,6 +100,7 @@ export function App() {
   const [draft, setDraft] = useState(profile);
   const [online, setOnline] = useState(navigator.onLine);
   const [swError, setSwError] = useState(false);
+  const [logoutError, setLogoutError] = useState("");
   const [tab, setTab] = useState(USE_MOCK ? "schedule" : "attendance");
   useEffect(startSync, []);
   useEffect(() => {
@@ -115,8 +122,30 @@ export function App() {
           VKU <span>Sinh viên</span>
         </a>
         <SyncStatus online={online} />
+        {import.meta.env.VITE_PORTAL === "true" && (
+          <button
+            className="secondary"
+            onClick={async () => {
+              try {
+                await logoutPortal();
+                window.location.assign("/");
+              } catch {
+                setLogoutError(
+                  "Chưa đăng xuất được. Hãy kết nối mạng và thử lại.",
+                );
+              }
+            }}
+          >
+            Đăng xuất
+          </button>
+        )}
       </header>
       <main>
+        {logoutError && (
+          <p className="inline-error" role="alert">
+            {logoutError}
+          </p>
+        )}
         <div className="page-heading">
           <div>
             <h1>Học tập</h1>

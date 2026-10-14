@@ -21,7 +21,8 @@ precacheAndRoute(self.__WB_MANIFEST);
 cleanupOutdatedCaches();
 clientsClaim();
 registerRoute(
-  new NavigationRoute(createHandlerBoundToURL("/index.html"), {
+  new NavigationRoute(createHandlerBoundToURL(`${import.meta.env.BASE_URL}index.html`), {
+    allowlist: [new RegExp(`^${import.meta.env.BASE_URL.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`)],
     denylist: [/^\/api\//],
   }),
 );

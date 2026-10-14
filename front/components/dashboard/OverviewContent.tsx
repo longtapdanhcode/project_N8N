@@ -149,7 +149,7 @@ export const OverviewContent: React.FC<OverviewContentProps> = ({ kpis }) => {
           </div>
 
           <div className="flex items-center gap-2">
-            <Link href="/students">
+            <Link href="/teacher/students">
               <Button
                 variant="outline"
                 size="sm"
@@ -260,7 +260,7 @@ export const OverviewContent: React.FC<OverviewContentProps> = ({ kpis }) => {
                   <p className="text-[11px] text-slate-400">Top 5 tỷ lệ vắng nghiêm trọng</p>
                 </div>
               </div>
-              <Link href="/attendance?status=PROHIBITED">
+              <Link href="/teacher/attendance?status=PROHIBITED">
                 <span className="text-xs font-semibold text-blue-600 hover:text-blue-800 cursor-pointer flex items-center gap-1">
                   Xem tất cả <ArrowRight className="w-3 h-3" />
                 </span>
@@ -317,7 +317,7 @@ export const OverviewContent: React.FC<OverviewContentProps> = ({ kpis }) => {
                           {pct}% vắng
                         </Badge>
                         <Link
-                          href={`/students?search=${encodeURIComponent(s.studentId)}`}
+                          href={`/teacher/students?search=${encodeURIComponent(s.studentId)}`}
                           className="text-[10px] font-semibold text-blue-600 hover:text-blue-800 hover:underline cursor-pointer"
                           title="Xem hồ sơ sinh viên"
                         >
@@ -449,7 +449,7 @@ export const OverviewContent: React.FC<OverviewContentProps> = ({ kpis }) => {
 
         {/* ============ Quick Navigation Cards ============ */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <Link href="/students" className="group block">
+          <Link href="/teacher/students" className="group block">
             <div className="p-4 rounded-xl border border-slate-200 bg-white hover:border-blue-300 hover:shadow-sm transition-all">
               <div className="flex items-center gap-3 mb-2">
                 <div className="w-9 h-9 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center group-hover:bg-blue-100 transition-colors">
@@ -466,7 +466,7 @@ export const OverviewContent: React.FC<OverviewContentProps> = ({ kpis }) => {
             </div>
           </Link>
 
-          <Link href="/attendance" className="group block">
+          <Link href="/teacher/attendance" className="group block">
             <div className="p-4 rounded-xl border border-slate-200 bg-white hover:border-amber-300 hover:shadow-sm transition-all">
               <div className="flex items-center gap-3 mb-2">
                 <div className="w-9 h-9 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center group-hover:bg-amber-100 transition-colors">
@@ -483,7 +483,7 @@ export const OverviewContent: React.FC<OverviewContentProps> = ({ kpis }) => {
             </div>
           </Link>
 
-          <Link href="/projects" className="group block">
+          <Link href="/teacher/projects" className="group block">
             <div className="p-4 rounded-xl border border-slate-200 bg-white hover:border-indigo-300 hover:shadow-sm transition-all">
               <div className="flex items-center gap-3 mb-2">
                 <div className="w-9 h-9 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:bg-indigo-100 transition-colors">

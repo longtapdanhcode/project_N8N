@@ -1,3 +1,4 @@
+/// <reference types="vite/client" />
 import type { Plugin, Connect } from "vite";
 import type { TimetableEntry } from "./db.ts";
 

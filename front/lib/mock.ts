@@ -1,4 +1,4 @@
-import { Student, Thesis, AttendanceRecord, DashboardKPIs, Milestone, MilestoneStatus } from '@/types';
+import { Student, Thesis, AttendanceRecord, DashboardKPIs, Milestone, MilestoneStatus } from '../types';
 
 // Deterministic Pseudo-Random Generator (LCG) for reproducible, stable mock data
 class SeededRandom {

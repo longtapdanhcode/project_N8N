@@ -1,3 +1,5 @@
+import { mockTeacherFetch } from './portal-mock';
+const portalFetch = (url: string, init?: RequestInit) => process.env.NEXT_PUBLIC_PORTAL_MOCK === 'true' ? mockTeacherFetch(url, init) : fetch(url, init);
 import { 
   Student, 
   AttendanceRecord, 
@@ -29,7 +31,7 @@ export async function getStudents(options: FilterOptions = {}): Promise<Paginate
     if (options.sortBy) params.set('sortBy', options.sortBy);
     if (options.sortOrder) params.set('sortOrder', options.sortOrder);
 
-    const res = await fetch(`${BACKEND_BASE_URL}/students?${params.toString()}`, {
+    const res = await portalFetch(`${BACKEND_BASE_URL}/students?${params.toString()}`, {
       cache: 'no-store',
     });
 
@@ -54,7 +56,7 @@ export async function getStudents(options: FilterOptions = {}): Promise<Paginate
  */
 export async function getClassList(): Promise<string[]> {
   try {
-    const res = await fetch(`${BACKEND_BASE_URL}/students/classes`, { cache: 'no-store' });
+    const res = await portalFetch(`${BACKEND_BASE_URL}/students/classes`, { cache: 'no-store' });
     if (res.ok) {
       return await res.json();
     }
@@ -69,7 +71,7 @@ export async function getClassList(): Promise<string[]> {
  */
 export async function getTopAttendanceViolators(limit = 5): Promise<Student[]> {
   try {
-    const res = await fetch(`${BACKEND_BASE_URL}/students/top-violators?limit=${limit}`, {
+    const res = await portalFetch(`${BACKEND_BASE_URL}/students/top-violators?limit=${limit}`, {
       cache: 'no-store',
     });
     if (res.ok) {
@@ -86,7 +88,7 @@ export async function getTopAttendanceViolators(limit = 5): Promise<Student[]> {
  */
 export async function getStudentById(studentId: string): Promise<Student | null> {
   try {
-    const res = await fetch(`${BACKEND_BASE_URL}/students/${encodeURIComponent(studentId)}`, {
+    const res = await portalFetch(`${BACKEND_BASE_URL}/students/${encodeURIComponent(studentId)}`, {
       cache: 'no-store',
     });
     if (res.ok) {
@@ -120,7 +122,7 @@ export async function getAttendanceRecords(options: {
     if (options.sortBy) params.set('sortBy', options.sortBy);
     if (options.sortOrder) params.set('sortOrder', options.sortOrder);
 
-    const res = await fetch(`${BACKEND_BASE_URL}/attendance/records?${params.toString()}`, {
+    const res = await portalFetch(`${BACKEND_BASE_URL}/attendance/records?${params.toString()}`, {
       cache: 'no-store',
     });
     if (res.ok) {
@@ -161,7 +163,7 @@ export async function getTheses(options: {
     if (options.sortBy) params.set('sortBy', options.sortBy);
     if (options.sortOrder) params.set('sortOrder', options.sortOrder);
 
-    const res = await fetch(`${BACKEND_BASE_URL}/theses?${params.toString()}`, {
+    const res = await portalFetch(`${BACKEND_BASE_URL}/theses?${params.toString()}`, {
       cache: 'no-store',
     });
     if (res.ok) {
@@ -185,7 +187,7 @@ export async function getTheses(options: {
  */
 export async function getDashboardKPIs(): Promise<DashboardKPIs> {
   try {
-    const res = await fetch(`${BACKEND_BASE_URL}/dashboard/kpis`, { cache: 'no-store' });
+    const res = await portalFetch(`${BACKEND_BASE_URL}/dashboard/kpis`, { cache: 'no-store' });
     if (res.ok) {
       return await res.json();
     }
@@ -218,7 +220,7 @@ export async function updateThesisMilestone(
 }
 
 async function serviceRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const res = await fetch(`${BACKEND_BASE_URL}${path}`, {...init, cache:'no-store', signal:AbortSignal.timeout(130_000)});
+  const res = await portalFetch(`${BACKEND_BASE_URL}${path}`, {...init, cache:'no-store', signal:AbortSignal.timeout(130_000)});
   const data = await res.json();
   if (!res.ok) throw new Error(data.message || `Yêu cầu thất bại (${res.status})`);
   return data;
@@ -246,7 +248,7 @@ export function ingestDocument(input: {title: string; content: string; category:
  */
 export async function fetchCourses(): Promise<any[]> {
   try {
-    const res = await fetch(`${BACKEND_BASE_URL}/courses`, { cache: 'no-store' });
+    const res = await portalFetch(`${BACKEND_BASE_URL}/courses`, { cache: 'no-store' });
     if (res.ok) return await res.json();
   } catch (error) {
     console.error('Failed to fetch courses from live backend:', error);
@@ -259,7 +261,7 @@ export async function fetchCourses(): Promise<any[]> {
  */
 export async function fetchClassSections(): Promise<any[]> {
   try {
-    const res = await fetch(`${BACKEND_BASE_URL}/class-sections`, { cache: 'no-store' });
+    const res = await portalFetch(`${BACKEND_BASE_URL}/class-sections`, { cache: 'no-store' });
     if (res.ok) return await res.json();
   } catch (error) {
     console.error('Failed to fetch class sections from live backend:', error);
@@ -275,7 +277,7 @@ export async function fetchAttendanceHistory(classSectionId?: string): Promise<a
     const url = classSectionId
       ? `${BACKEND_BASE_URL}/attendance/history?class_section_id=${encodeURIComponent(classSectionId)}`
       : `${BACKEND_BASE_URL}/attendance/history`;
-    const res = await fetch(url, { cache: 'no-store' });
+    const res = await portalFetch(url, { cache: 'no-store' });
     if (res.ok) return await res.json();
   } catch (error) {
     console.error('Failed to fetch attendance history from live backend:', error);
@@ -288,7 +290,7 @@ export async function fetchAttendanceHistory(classSectionId?: string): Promise<a
  */
 export async function askAcademicAI(question: string) {
   try {
-    const response = await fetch(`${BACKEND_BASE_URL}/ai/ask`, {
+    const response = await portalFetch(`${BACKEND_BASE_URL}/ai/ask`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ question }),
@@ -331,7 +333,7 @@ export interface AcademicWarningScanResponse {
  * Trigger academic warning scan across all students in MongoDB and dispatch alerts to n8n webhook
  */
 export async function scanAcademicWarnings(limit = 1): Promise<AcademicWarningScanResponse> {
-  const response = await fetch(`${BACKEND_BASE_URL}/academic-warning/scan`, {
+  const response = await portalFetch(`${BACKEND_BASE_URL}/academic-warning/scan`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ limit }),
@@ -343,4 +345,3 @@ export async function scanAcademicWarnings(limit = 1): Promise<AcademicWarningSc
 
   return await response.json();
 }
-

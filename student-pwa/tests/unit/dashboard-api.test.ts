@@ -4,8 +4,8 @@ import {
   refreshThesis,
   ingestDocument,
   scanAcademicWarnings,
-} from "../../../dashboard/lib/api";
-import type { Thesis } from "../../../dashboard/types";
+} from "../../../front/lib/api";
+import type { Thesis } from "../../../front/types";
 
 afterEach(() => vi.unstubAllGlobals());
 it("surfaces a failed thesis workflow instead of displaying a saved state", async () => {

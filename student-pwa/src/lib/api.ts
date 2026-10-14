@@ -1,6 +1,16 @@
 // All application HTTP calls live here, shared by the page and service worker.
 import type { TimetableEntry, SyncItem } from "./db";
 export const USE_MOCK = import.meta.env.VITE_USE_MOCK !== "false";
+export async function portalSession() {
+  const res = await fetch('/api/session', {cache:'no-store'});
+  if (!res.ok) throw new Error('Phiên đăng nhập đã hết hạn.');
+  return res.json() as Promise<{session:{role:string;username:string;name:string;expires:number}}>;
+}
+export async function logoutPortal() {
+  const res = await fetch('/api/session',{method:'DELETE'});
+  if (!res.ok) throw new Error('Chưa đăng xuất được. Hãy thử lại khi có mạng.');
+  sessionStorage.removeItem('vku-offline-session');
+}
 export const API_BASE = (import.meta.env.VITE_API_URL || "/api").replace(
   /\/$/,
   "",

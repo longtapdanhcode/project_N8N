@@ -9,10 +9,11 @@ import "@fontsource/be-vietnam-pro/vietnamese-600.css";
 import "./style.css";
 import { App } from "./App";
 import { Capacitor } from "@capacitor/core";
+import { PortalGate } from "./components/PortalGate";
 
 createRoot(document.getElementById("app")!).render(
   <React.StrictMode>
-    <App />
+    {import.meta.env.VITE_PORTAL === "true" ? <PortalGate><App /></PortalGate> : <App />}
   </React.StrictMode>,
 );
 
@@ -22,7 +23,7 @@ if (
   "serviceWorker" in navigator &&
   import.meta.env.PROD
 ) {
-  void navigator.serviceWorker.register("/sw.js").catch(() => {
+  void navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`,{scope:import.meta.env.BASE_URL}).catch(() => {
     window.dispatchEvent(new Event("sw-error"));
   });
 }

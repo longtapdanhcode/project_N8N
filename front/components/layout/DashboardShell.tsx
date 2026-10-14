@@ -1,60 +1,91 @@
-'use client';
-
-import React, { useState } from 'react';
-import { Sidebar } from './Sidebar';
-import { Header } from './Header';
-
-interface DashboardShellProps {
-  children: React.ReactNode;
-  activeTitle: string;
-  badgeCounts?: {
-    attendanceWarning?: number;
-    thesisActive?: number;
-  };
-}
-
-export const DashboardShell: React.FC<DashboardShellProps> = ({
+"use client";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { useState, type ReactNode } from "react";
+import {
+  LayoutDashboard,
+  Users,
+  CalendarCheck2,
+  BookOpenCheck,
+  Files,
+  Settings,
+} from "lucide-react";
+const tabs = [
+  ["/teacher", "Tổng quan", LayoutDashboard],
+  ["/teacher/students", "Sinh viên", Users],
+  ["/teacher/attendance", "Điểm danh", CalendarCheck2],
+  ["/teacher/projects", "Đồ án", BookOpenCheck],
+  ["/teacher/documents", "Tài liệu", Files],
+  ["/teacher/settings", "Cài đặt", Settings],
+] as const;
+export function DashboardShell({
   children,
   activeTitle,
-  badgeCounts,
-}) => {
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-
-  const handleToggleSidebar = () => {
-    // If mobile screen, toggle mobile drawer; else toggle collapse
-    if (typeof window !== 'undefined' && window.innerWidth < 768) {
-      setMobileSidebarOpen(!mobileSidebarOpen);
-    } else {
-      setSidebarCollapsed(!sidebarCollapsed);
-    }
-  };
-
+}: {
+  children: ReactNode;
+  activeTitle: string;
+  badgeCounts?: { attendanceWarning?: number; thesisActive?: number };
+}) {
+  const path = usePathname();
+  const [error, setError] = useState("");
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
-      <Sidebar
-        collapsed={sidebarCollapsed}
-        onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
-        mobileOpen={mobileSidebarOpen}
-        onCloseMobile={() => setMobileSidebarOpen(false)}
-        badgeCounts={badgeCounts}
-      />
-      <div
-        className={`flex-1 flex flex-col transition-all duration-300 ease-in-out pl-0 ${
-          sidebarCollapsed ? 'md:pl-20' : 'md:pl-64'
-        }`}
-      >
-        <Header
-          onToggleSidebar={handleToggleSidebar}
-          searchQuery={searchQuery}
-          onSearchChange={setSearchQuery}
-          activeTitle={activeTitle}
-        />
-        <main className="flex-1 p-4 sm:p-6 max-w-7xl w-full mx-auto space-y-4">
-          {children}
-        </main>
-      </div>
+    <div className="teacher-portal">
+      <header className="portal-header">
+        <Link className="portal-brand" href="/teacher">
+          VKU <span>Giảng viên</span>
+        </Link>
+        <div className="portal-actions">
+          <span className="portal-muted">Cổng giảng viên</span>
+          <button
+            onClick={async () => {
+              try {
+                const res = await fetch("/api/session", { method: "DELETE" });
+                if (!res.ok) throw new Error();
+                window.location.assign("/");
+              } catch {
+                setError("Chưa đăng xuất được. Vui lòng thử lại.");
+              }
+            }}
+          >
+            Đăng xuất
+          </button>
+        </div>
+      </header>
+      <main className="portal-main">
+        <div className="portal-heading">
+          <div>
+            <h1>{activeTitle}</h1>
+            <p className="portal-muted">Quản lý học tập và hỗ trợ sinh viên</p>
+          </div>
+          <span className="portal-muted">Học kỳ I · 2026–2027</span>
+        </div>
+        <nav className="portal-tabs" aria-label="Chức năng giảng viên">
+          {tabs.map(([href, label, Icon]) => (
+            <Link
+              key={href}
+              href={href}
+              aria-current={path === href ? "page" : undefined}
+            >
+              <Icon size={18} strokeWidth={1.5} />
+              {label}
+            </Link>
+          ))}
+        </nav>
+        {error && (
+          <p role="alert" className="service-error">
+            {error}
+          </p>
+        )}
+        {children}
+        <footer className="portal-footer">
+          <span>VKU · Cổng giảng viên</span>
+          <span>
+            {process.env.NEXT_PUBLIC_PORTAL_MOCK === "true"
+              ? "Dữ liệu minh họa"
+              : "Hệ thống đào tạo"}
+          </span>
+        </footer>
+      </main>
     </div>
   );
-};
+}
