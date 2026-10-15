@@ -7,6 +7,7 @@ const cspHeader = `
   style-src 'self' 'unsafe-inline' https: http:;
   img-src 'self' blob: data: https: http:;
   font-src 'self' data: https: http:;
+  media-src 'self' https: http: blob: data:;
   connect-src 'self' https: http: ws: wss:;
   frame-ancestors 'none';
 `.replace(/\s{2,}/g, ' ').trim();
