@@ -1,11 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
-  accounts,
   COOKIE,
   destination,
   readSession,
   signSession,
+  type Role,
+  type Session,
 } from "@/lib/session";
+
+const BACKEND_URL =
+  process.env.BACKEND_INTERNAL_URL ||
+  process.env.NEXT_PUBLIC_BACKEND_URL ||
+  "http://127.0.0.1:3001";
 
 function sameOrigin(req: NextRequest) {
   const originHeader = req.headers.get("origin");
@@ -33,51 +39,80 @@ export function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  if (!sameOrigin(req))
+  if (!sameOrigin(req)) {
     return NextResponse.json(
       { message: "Nguồn yêu cầu không hợp lệ." },
       { status: 403 },
     );
-
-  // Mặc định cho phép demo auth trừ khi bị chủ động vô hiệu hóa bằng DEMO_AUTH_ENABLED=false
-  if (process.env.DEMO_AUTH_ENABLED === "false")
-    return NextResponse.json(
-      { message: "Chưa cấu hình dịch vụ đăng nhập thật." },
-      { status: 503 },
-    );
+  }
 
   const body = await req.json().catch(() => null);
-  const account =
-    typeof body?.username === "string" && typeof body?.password === "string"
-      ? accounts.find(
-          (a) =>
-            a.username === body.username.trim() && a.password === body.password,
-        )
-      : undefined;
+  const identifier =
+    typeof body?.username === "string"
+      ? body.username.trim()
+      : typeof body?.identifier === "string"
+        ? body.identifier.trim()
+        : "";
+  const password = typeof body?.password === "string" ? body.password : "";
 
-  if (!account)
+  if (!identifier || !password) {
     return NextResponse.json(
-      { message: "Tài khoản hoặc mật khẩu không đúng." },
-      { status: 401 },
+      { message: "Vui lòng nhập tài khoản/email và mật khẩu." },
+      { status: 400 },
     );
+  }
 
   try {
-    const session = {
-      username: account.username,
-      name: account.name,
-      role: account.role,
+    // Chuyển tiếp request xác thực sang Backend NestJS cổng 3001
+    const backendRes = await fetch(`${BACKEND_URL}/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        username: identifier,
+        password,
+      }),
+    });
+
+    const backendData = await backendRes.json().catch(() => ({}));
+
+    if (!backendRes.ok || !backendData?.success || !backendData?.user) {
+      return NextResponse.json(
+        {
+          message:
+            backendData?.message || "Tài khoản hoặc mật khẩu không chính xác.",
+        },
+        { status: backendRes.status === 401 ? 401 : 400 },
+      );
+    }
+
+    const user = backendData.user;
+    const normalizedRole: Role =
+      String(user.role).toUpperCase() === "TEACHER" ? "teacher" : "student";
+
+    const session: Session = {
+      username: user.username || identifier,
+      name: user.name || user.fullName || "Người dùng",
+      role: normalizedRole,
+      studentId: user.studentId || (normalizedRole === "student" ? user.username : undefined),
+      email: user.email,
+      department: user.department,
       expires: Date.now() + 8 * 60 * 60 * 1000,
     };
+
     const response = NextResponse.json({
       success: true,
-      destination: destination(account.role),
+      destination: destination(normalizedRole),
+      accessToken: backendData.accessToken,
       session: {
-        username: account.username,
-        name: account.name,
-        role: account.role,
-        studentId: account.role === "student" ? account.username : undefined,
+        username: session.username,
+        name: session.name,
+        role: session.role,
+        studentId: session.studentId,
+        email: session.email,
+        department: session.department,
       },
     });
+
     response.cookies.set(COOKIE, signSession(session), {
       httpOnly: true,
       sameSite: "lax",
@@ -85,12 +120,14 @@ export async function POST(req: NextRequest) {
       path: "/",
       maxAge: 8 * 60 * 60,
     });
+
     return response;
-  } catch {
+  } catch (err: unknown) {
+    console.error("Lỗi khi kết nối đến Backend Auth:", err);
     return NextResponse.json(
       {
         message:
-          "Chưa cấu hình phiên đăng nhập. Chạy ứng dụng bằng lệnh ở thư mục gốc.",
+          "Không thể kết nối đến máy chủ xác thực Backend (cổng 3001). Vui lòng thử lại sau.",
       },
       { status: 503 },
     );
@@ -98,11 +135,12 @@ export async function POST(req: NextRequest) {
 }
 
 export function DELETE(req: NextRequest) {
-  if (!sameOrigin(req))
+  if (!sameOrigin(req)) {
     return NextResponse.json(
       { message: "Nguồn yêu cầu không hợp lệ." },
       { status: 403 },
     );
+  }
   const response = NextResponse.json({ success: true });
   response.cookies.set(COOKIE, "", { path: "/", maxAge: 0 });
   return response;

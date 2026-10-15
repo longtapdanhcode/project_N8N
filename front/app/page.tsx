@@ -23,8 +23,14 @@ export default function LoginPage() {
                 body: JSON.stringify({ username, password }),
               });
               const data = await res.json();
-              if (!res.ok) throw new Error(data.message);
-              window.location.assign(data.destination);
+              if (!res.ok) throw new Error(data.message || "Tài khoản hoặc mật khẩu không chính xác.");
+              if (data.destination && data.destination.includes("/student")) {
+                const cacheBuster = `?t=${Date.now()}`;
+                const destination = (data.destination || "/student/index.html").replace(/\/index\.html.*$/, "/index.html") + cacheBuster;
+                window.location.replace(destination);
+              } else {
+                window.location.replace(data.destination || "/teacher");
+              }
             } catch (e) {
               setError(e instanceof Error ? e.message : "Không thể đăng nhập.");
               setBusy(false);
@@ -38,7 +44,7 @@ export default function LoginPage() {
               required
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              placeholder="MSSV hoặc tài khoản giảng viên"
+              placeholder="MSSV hoặc tài khoản giảng viên (hoặc email)"
             />
           </label>
           <label>
@@ -61,17 +67,50 @@ export default function LoginPage() {
           </button>
         </form>
         <details>
-          <summary>Tài khoản thử nghiệm</summary>
-          <p>
-            Giảng viên: <code>gv.demo</code> / <code>DemoGV2026!</code>
-          </p>
-          <p>
-            Sinh viên: <code>23IT112</code> / <code>DemoSV2026!</code>
-          </p>
-          <p className="portal-muted">
-            Bản thử nghiệm. Vai trò được xác định từ tài khoản, chưa kết nối hệ
-            thống xác thực của trường.
-          </p>
+          <summary>Tài khoản kiểm thử thực từ Database (Mật khẩu: 123456)</summary>
+          <div style={{ marginTop: "12px", display: "grid", gap: "8px" }}>
+            <div>
+              <p style={{ margin: "4px 0", fontWeight: 600 }}>Sinh viên:</p>
+              <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+                <button
+                  type="button"
+                  style={{ fontSize: "12px", padding: "4px 8px", minHeight: "auto", background: "var(--primary-soft)", color: "var(--primary)", border: "1px solid var(--border)" }}
+                  onClick={() => { setUsername("23IT143"); setPassword("123456"); setError(""); }}
+                >
+                  23IT143 (Lê Bảo Long)
+                </button>
+                <button
+                  type="button"
+                  style={{ fontSize: "12px", padding: "4px 8px", minHeight: "auto", background: "var(--primary-soft)", color: "var(--primary)", border: "1px solid var(--border)" }}
+                  onClick={() => { setUsername("23IT003"); setPassword("123456"); setError(""); }}
+                >
+                  23IT003 (Hoàng Lê An)
+                </button>
+              </div>
+            </div>
+            <div>
+              <p style={{ margin: "4px 0", fontWeight: 600 }}>Giảng viên:</p>
+              <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+                <button
+                  type="button"
+                  style={{ fontSize: "12px", padding: "4px 8px", minHeight: "auto", background: "var(--primary-soft)", color: "var(--primary)", border: "1px solid var(--border)" }}
+                  onClick={() => { setUsername("gv.minh"); setPassword("123456"); setError(""); }}
+                >
+                  gv.minh (TS. Nguyễn Công Minh)
+                </button>
+                <button
+                  type="button"
+                  style={{ fontSize: "12px", padding: "4px 8px", minHeight: "auto", background: "var(--primary-soft)", color: "var(--primary)", border: "1px solid var(--border)" }}
+                  onClick={() => { setUsername("gv.huy"); setPassword("123456"); setError(""); }}
+                >
+                  gv.huy (ThS. Trần Quốc Huy)
+                </button>
+              </div>
+            </div>
+            <p className="portal-muted" style={{ margin: "6px 0 0" }}>
+              Xác thực trực tiếp từ Database MongoDB <code>vku-ai-support</code> qua Backend NestJS cổng 3001. Có thể đăng nhập bằng mã tài khoản hoặc email trường.
+            </p>
+          </div>
         </details>
       </div>
     </main>

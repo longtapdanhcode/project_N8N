@@ -13,6 +13,7 @@ import { AcademicWarningModule } from './modules/academic-warning/academic-warni
 import { AttendanceModule } from './modules/attendance/attendance.module';
 import { CourseRegistrationModule } from './modules/course-registration/course-registration.module';
 import { StudentModule } from './modules/student/student.module';
+import { AuthModule } from './modules/auth/auth.module';
 import { FaqController } from './faq.controller';
 
 @Module({
@@ -50,6 +51,7 @@ import { FaqController } from './faq.controller';
     AttendanceModule,
     CourseRegistrationModule,
     StudentModule,
+    AuthModule,
   ],
   controllers: [AppController, FaqController],
   providers: [AppService],

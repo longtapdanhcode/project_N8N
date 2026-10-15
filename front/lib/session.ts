@@ -7,6 +7,8 @@ export interface Session {
   role: Role;
   expires: number;
   studentId?: string;
+  email?: string;
+  department?: string;
 }
 export const COOKIE = "vku_session";
 export const destination = (role: Role) =>

@@ -116,30 +116,47 @@ export function App() {
       window.removeEventListener("sw-error", error);
     };
   }, []);
+
+  const handleLogout = async () => {
+    try {
+      // Xóa cookie phiên làm việc
+      await fetch('/api/session', { method: 'DELETE' });
+    } catch (err) {
+      console.error('Logout error:', err);
+    }
+    // Dọn dẹp cache cục bộ nếu có
+    localStorage.removeItem('vku_user');
+    sessionStorage.clear();
+    // Chuyển hướng cứng về trang đăng nhập
+    window.location.replace('/');
+  };
+
   return (
     <>
       <header>
         <a className="brand" href="/">
           VKU <span>Sinh viên</span>
         </a>
-        <SyncStatus online={online} />
-        {import.meta.env.VITE_PORTAL === "true" && (
+        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+          <SyncStatus online={online} />
           <button
-            className="secondary"
-            onClick={async () => {
-              try {
-                await logoutPortal();
-                window.location.assign("/");
-              } catch {
-                setLogoutError(
-                  "Chưa đăng xuất được. Hãy kết nối mạng và thử lại.",
-                );
-              }
+            onClick={handleLogout}
+            className="px-3.5 py-1.5 text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 hover:text-red-600 transition-colors cursor-pointer shadow-xs"
+            style={{
+              padding: "6px 14px",
+              fontSize: "12px",
+              fontWeight: 500,
+              color: "#334155",
+              backgroundColor: "#ffffff",
+              border: "1px solid #e2e8f0",
+              borderRadius: "8px",
+              cursor: "pointer",
+              minHeight: "32px",
             }}
           >
             Đăng xuất
           </button>
-        )}
+        </div>
       </header>
       <main>
         {logoutError && (

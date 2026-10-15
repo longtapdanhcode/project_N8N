@@ -11,12 +11,15 @@ export async function logoutPortal() {
   if (!res.ok) throw new Error('Chưa đăng xuất được. Hãy thử lại khi có mạng.');
   sessionStorage.removeItem('vku-offline-session');
 }
-export const API_BASE = (import.meta.env.VITE_API_URL || "/api").replace(
-  /\/$/,
-  "",
-);
-export const apiUrl = (path: string) =>
-  `${API_BASE}/${path.replace(/^\//, "")}`;
+const rawBase = (import.meta.env.VITE_API_URL || "/api").trim();
+export const API_BASE = (
+  rawBase.startsWith("http") || rawBase.startsWith("/") ? rawBase : `/${rawBase}`
+).replace(/\/$/, "");
+
+export const apiUrl = (path: string) => {
+  const cleanPath = path.replace(/^\//, "");
+  return `${API_BASE}/${cleanPath}`;
+};
 
 export interface Grade {
   course: string;
