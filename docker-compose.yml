@@ -34,6 +34,7 @@ services:
       - GENERIC_TIMEZONE=Asia/Ho_Chi_Minh
       - NODE_FUNCTION_ALLOW_BUILTIN=*
       - NODE_FUNCTION_ALLOW_EXTERNAL=*
+      - WEBHOOK_SECRET=616a09a9323b2d861c69d6fa1139a4db18aff7e24ea818bd292a6469bb80dd98
     volumes:
       - vku_n8n_data:/home/node/.n8n
 

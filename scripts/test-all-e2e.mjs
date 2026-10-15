@@ -36,6 +36,7 @@ function loadEnv() {
     N8N_COURSE_REGISTRATION_URL: 'http://localhost:5678/webhook/course-registration',
     N8N_ACADEMIC_WARNING_URL: 'http://localhost:5678/webhook/academic-warning-alert',
     N8N_ATTENDANCE_SYNC_URL: 'http://localhost:5678/webhook/attendance-offline-sync',
+    N8N_THESIS_URL: 'http://localhost:5678/webhook/thesis-milestone-updated',
     N8N_WEBHOOK_URL: 'http://localhost:5678/webhook/test-event',
     SUPABASE_URL: 'https://foqiadfeageiubjlpcbs.supabase.co',
     SUPABASE_SERVICE_ROLE_KEY: '',
@@ -71,7 +72,8 @@ function signHmac(payload, secretKey) {
 // Helper: Query MongoDB qua container vku-mongo
 function mongoEval(jsCode) {
   try {
-    const cmd = `docker exec vku-mongo mongosh ${env.MONGO_DB} --quiet --eval ${JSON.stringify(jsCode)}`;
+    const escaped = jsCode.replace(/\\/g, '\\\\').replace(/\$/g, '\\$').replace(/"/g, '\\"');
+    const cmd = `docker exec vku-mongo mongosh ${env.MONGO_DB} --quiet --eval "${escaped}"`;
     const output = execSync(cmd, { encoding: 'utf8', timeout: 8000 });
     return output.trim();
   } catch (err) {
@@ -410,6 +412,63 @@ async function runAllE2ETests() {
   } catch (err) {
     console.error(`  ❌ Lỗi Case 6: ${err.message}`);
     recordResult('[DLQ] Global Error Handler', 'POST /webhook/dlq-error-trigger', 'Simulated Error', 'Error', err.message, 'FAILED');
+  }
+
+  // =========================================================================
+  // CASE 7: VKU - Mốc đồ án - HMAC Mongo Gemini (12 nodes)
+  // =========================================================================
+  console.log('\n▶ [CASE 7] Kiểm thử: "VKU - Mốc đồ án - HMAC Mongo Gemini (12 nodes)"...');
+  try {
+    const thesisId = '6ad098898ff330e75ad1a7be';
+    const milestoneId = '6ad098898ff330e75ad1a7bb';
+
+    // Đảm bảo trạng thái mốc trong MongoDB sẵn sàng là COMPLETED để NestJS callback ghi nhận
+    const resetJs = 'db.theses.updateOne({ _id: ObjectId("' + thesisId + '"), "milestones._id": ObjectId("' + milestoneId + '") }, { $set: { "milestones.$.status": "COMPLETED", "milestones.$.aiFeedback": null } });';
+    mongoEval(resetJs);
+
+    const payloadCase7 = { thesisId, milestoneId, status: 'COMPLETED' };
+    const rawCase7 = JSON.stringify(payloadCase7);
+    const sigCase7 = signHmac(rawCase7, env.WEBHOOK_SECRET);
+
+    const t0 = Date.now();
+    const res7 = await fetch(env.N8N_THESIS_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-signature': sigCase7,
+        'x-event-type': 'THESIS_MILESTONE_UPDATED',
+      },
+      body: rawCase7,
+    });
+    const dt7 = Date.now() - t0;
+    const data7 = await res7.json();
+
+    const queryJs = `const t = db.theses.findOne({ _id: ObjectId("${thesisId}") }); const m = t.milestones.find(x => String(x._id) === "${milestoneId}"); print(JSON.stringify({ status: m.status, aiFeedback: m.aiFeedback }));`;
+    const verifyDocRaw = mongoEval(queryJs);
+    const verifyData = JSON.parse(verifyDocRaw);
+
+    const isOk7 =
+      res7.status === 200 &&
+      data7.success === true &&
+      data7.aiFeedbackSaved === true &&
+      typeof verifyData.aiFeedback === 'string' &&
+      verifyData.aiFeedback.length > 20;
+
+    console.log(`  ✔ Status Thesis Webhook: ${res7.status} (${dt7}ms)`);
+    console.log(`  ✔ Thesis Response: success=${data7.success}, aiFeedbackSaved=${data7.aiFeedbackSaved}`);
+    console.log(`  ✔ Gemini 3.5 Feedback: "${verifyData.aiFeedback?.slice(0, 100)}..."`);
+
+    recordResult(
+      'VKU - Mốc đồ án - HMAC Mongo Gemini',
+      'POST /webhook/thesis-milestone-updated',
+      `thesisId: ${thesisId.slice(0, 8)}..., status: COMPLETED`,
+      `HTTP ${res7.status}, saved=true (${dt7}ms)`,
+      `Lưu phản hồi AI vào MongoDB theses (${verifyData.aiFeedback?.length} ký tự)`,
+      isOk7 ? 'PASSED' : 'FAILED',
+    );
+  } catch (err) {
+    console.error(`  ❌ Lỗi Case 7: ${err.message}`);
+    recordResult('VKU - Mốc đồ án - HMAC Mongo Gemini', 'POST /webhook/thesis-milestone-updated', 'status: COMPLETED', 'Error', err.message, 'FAILED');
   }
 
   // =========================================================================

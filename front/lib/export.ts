@@ -1,4 +1,4 @@
-import { Student, AttendanceRecord, Thesis } from '@/types';
+import { Student, AttendanceRecord, Thesis, Submission } from '@/types';
 
 /**
  * Helper to download a CSV file in browser with UTF-8 BOM
@@ -148,4 +148,43 @@ export function exportThesesToCSV(theses: Thesis[]) {
   const csv = [headers.join(','), ...rows.map((r) => r.join(','))].join('\r\n');
   const now = new Date().toISOString().split('T')[0];
   downloadCSV(csv, `VKU_Tien_do_do_an_tot_nghiep_${now}.csv`);
+}
+
+/**
+ * Export submissions list to CSV
+ */
+export function exportSubmissionsToCSV(submissions: Submission[]) {
+  const headers = [
+    'Mã bài nộp',
+    'Mã SV',
+    'Họ tên sinh viên',
+    'Môn học',
+    'Tiêu đề bài nộp',
+    'Trạng thái AI',
+    'Điểm AI',
+    'Model AI',
+    'Thời gian nộp',
+  ];
+
+  const rows = submissions.map((s) => [
+    escapeCSV(s._id),
+    escapeCSV(s.studentId),
+    escapeCSV(s.studentName || 'Chưa rõ'),
+    escapeCSV(s.courseName || 'Lập trình Web'),
+    escapeCSV(s.assignmentTitle),
+    escapeCSV(
+      s.status === 'COMPLETED'
+        ? 'ĐÃ PHÂN TÍCH'
+        : s.status === 'QUEUED' || s.status === 'PENDING'
+        ? 'ĐANG PHÂN TÍCH'
+        : 'THẤT BẠI'
+    ),
+    escapeCSV(s.feedback?.score !== undefined ? `${s.feedback.score}/10` : 'Chưa có'),
+    escapeCSV(s.model || 'gemini-3.5-flash-lite'),
+    escapeCSV(new Date(s.createdAt).toLocaleString('vi-VN')),
+  ]);
+
+  const csv = [headers.join(','), ...rows.map((r) => r.join(','))].join('\r\n');
+  const now = new Date().toISOString().split('T')[0];
+  downloadCSV(csv, `VKU_Danh_sach_bai_nop_${now}.csv`);
 }

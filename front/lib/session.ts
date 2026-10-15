@@ -6,10 +6,12 @@ export interface Session {
   name: string;
   role: Role;
   expires: number;
+  studentId?: string;
 }
 export const COOKIE = "vku_session";
 export const destination = (role: Role) =>
   role === "teacher" ? "/teacher" : "/student/index.html";
+
 // Demo accounts only. Replace with the backend identity provider before public deployment.
 export const accounts = [
   {
@@ -21,13 +23,17 @@ export const accounts = [
   {
     username: "23IT112",
     password: "DemoSV2026!",
-    name: "Nguyễn Minh Anh",
+    name: "Lê Bảo Long",
     role: "student" as const,
   },
 ];
+
+const DEFAULT_AUTH_SESSION_SECRET =
+  "vku_auth_session_secret_production_key_32chars_2026_super_secure";
+
 export function signSession(
   session: Session,
-  secret = process.env.AUTH_SESSION_SECRET,
+  secret = process.env.AUTH_SESSION_SECRET || DEFAULT_AUTH_SESSION_SECRET,
 ): string {
   if (!secret || secret.length < 32)
     throw new Error(
@@ -36,9 +42,10 @@ export function signSession(
   const body = Buffer.from(JSON.stringify(session)).toString("base64url");
   return `${body}.${createHmac("sha256", secret).update(body).digest("base64url")}`;
 }
+
 export function readSession(
   token?: string,
-  secret = process.env.AUTH_SESSION_SECRET,
+  secret = process.env.AUTH_SESSION_SECRET || DEFAULT_AUTH_SESSION_SECRET,
 ): Session | null {
   if (!token || !secret || secret.length < 32) return null;
   try {

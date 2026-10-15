@@ -13,9 +13,10 @@ import {
   ChevronRight,
   ShieldCheck,
   GraduationCap,
+  ClipboardList,
 } from 'lucide-react';
 
-export type NavTab = 'overview' | 'students' | 'attendance' | 'thesis' | 'settings' | 'documents';
+export type NavTab = 'overview' | 'students' | 'attendance' | 'thesis' | 'submissions' | 'documents' | 'settings';
 
 interface SidebarProps {
   activeTab?: NavTab;
@@ -48,37 +49,48 @@ export const Sidebar: React.FC<SidebarProps> = ({
     icon: React.ReactNode;
     badge?: number;
   }[] = [
-    {id:'documents',label:'Kho tài liệu',href:'/documents',icon:<BookOpenCheck className="w-5 h-5 flex-shrink-0" />},
     {
       id: 'overview',
       label: 'Tổng quan',
-      href: '/',
+      href: '/teacher',
       icon: <LayoutDashboard className="w-5 h-5 flex-shrink-0" />,
     },
     {
       id: 'students',
       label: 'Sinh viên',
-      href: '/students',
+      href: '/teacher/students',
       icon: <Users className="w-5 h-5 flex-shrink-0" />,
     },
     {
       id: 'attendance',
       label: 'Điểm danh',
-      href: '/attendance',
+      href: '/teacher/attendance',
       icon: <CalendarCheck2 className="w-5 h-5 flex-shrink-0" />,
       badge: badgeCounts.attendanceWarning,
     },
     {
       id: 'thesis',
       label: 'Đồ án tốt nghiệp',
-      href: '/projects',
+      href: '/teacher/projects',
       icon: <BookOpenCheck className="w-5 h-5 flex-shrink-0" />,
       badge: badgeCounts.thesisActive,
     },
     {
+      id: 'submissions',
+      label: 'Bài tập',
+      href: '/teacher/submissions',
+      icon: <ClipboardList className="w-5 h-5 flex-shrink-0" />,
+    },
+    {
+      id: 'documents',
+      label: 'Kho tài liệu',
+      href: '/teacher/documents',
+      icon: <BookOpenCheck className="w-5 h-5 flex-shrink-0" />,
+    },
+    {
       id: 'settings',
       label: 'Cài đặt',
-      href: '/settings',
+      href: '/teacher/settings',
       icon: <Settings className="w-5 h-5 flex-shrink-0" />,
     },
   ];

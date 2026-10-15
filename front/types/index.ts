@@ -99,3 +99,27 @@ export interface FilterOptions {
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
 }
+
+export interface SubmissionFeedback {
+  summary: string;
+  score: number;
+  strengths: string[];
+  weaknesses: string[];
+  suggestions: string[];
+}
+
+export interface Submission {
+  _id: string;
+  submissionId?: string;
+  studentId: string;
+  studentName?: string;
+  courseName?: string;
+  assignmentTitle: string;
+  content: string;
+  criteria?: string[];
+  status: 'QUEUED' | 'PENDING' | 'COMPLETED' | 'FAILED' | 'QUEUE_FAILED';
+  model?: string;
+  feedback?: SubmissionFeedback;
+  createdAt: string;
+  updatedAt: string;
+}

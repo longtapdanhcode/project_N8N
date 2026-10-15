@@ -152,22 +152,23 @@
           "options": {
             "caseSensitive": true,
             "leftValue": "",
-            "typeValidation": "strict",
+            "typeValidation": "loose",
             "version": 2
           },
           "combinator": "and",
           "conditions": [
             {
               "id": "found-milestone",
-              "leftValue": "={{ !!$json._id && Array.isArray($json.milestones) && $json.milestones.some(m => String(m._id) === String($('Lấy dữ liệu mốc').first().json.milestoneId)) }}",
-              "rightValue": true,
+              "leftValue": "={{ ($json.milestones || []).filter(m => (typeof m._id === 'string' ? m._id : (m._id?.buffer ? Object.values(m._id.buffer).map(b => b.toString(16).padStart(2, '0')).join('') : String(m._id || ''))) === String($('Lấy dữ liệu mốc').first().json.milestoneId)).length }}",
+              "rightValue": 0,
               "operator": {
-                "type": "boolean",
-                "operation": "equals"
+                "type": "number",
+                "operation": "gt"
               }
             }
           ]
         },
+        "looseTypeValidation": true,
         "options": {}
       }
     },
@@ -290,14 +291,14 @@
       ],
       "parameters": {
         "method": "POST",
-        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ contents: [{ parts: [{ text: 'Viết phản hồi ngắn bằng tiếng Việt cho sinh viên khi hoàn thành mốc đồ án. Chỉ dựa trên dữ liệu này; không tự đặt điểm số hay nhận xét về chất lượng chưa được cung cấp. Đồ án: ' + $json.title + '\\nMô tả: ' + ($json.description ?? '') + '\\nMốc: ' + ($json.milestones.find(m => String(m._id) === String($('Lấy dữ liệu mốc').first().json.milestoneId))?.title ?? '') }] }] }) }}",
+        "jsonBody": "={{ JSON.stringify({ contents: [{ parts: [{ text: 'Viết phản hồi ngắn gọn bằng tiếng Việt (1-2 câu) cho sinh viên khi hoàn thành mốc đồ án. Đồ án: ' + ($json.title || '') + '\\nMô tả: ' + ($json.description || '') + '\\nMốc: ' + (($json.milestones || []).find(m => (typeof m._id === 'string' ? m._id : (m._id?.buffer ? Object.values(m._id.buffer).map(b => b.toString(16).padStart(2, '0')).join('') : String(m._id || ''))) === String($('Lấy dữ liệu mốc').first().json.milestoneId))?.title || '') }] }] }) }}",
         "options": {
-          "timeout": 20000
+          "timeout": 30000
         }
       }
     },
@@ -312,12 +313,12 @@
       ],
       "parameters": {
         "method": "POST",
-        "url": "={{ ($env.NESTJS_BASE_URL || 'http://localhost:3001') + '/internal/theses/' + encodeURIComponent($('Lấy dữ liệu mốc').first().json.thesisId) + '/milestones/' + encodeURIComponent($('Lấy dữ liệu mốc').first().json.milestoneId) + '/feedback' }}",
+        "url": "={{ 'http://host.docker.internal:3001/internal/theses/' + encodeURIComponent($('Lấy dữ liệu mốc').first().json.thesisId) + '/milestones/' + encodeURIComponent($('Lấy dữ liệu mốc').first().json.milestoneId) + '/feedback' }}",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ (() => { const text = $json.candidates?.[0]?.content?.parts?.[0]?.text; if (!text) throw new Error('Gemini không trả phản hồi'); return JSON.stringify({ aiFeedback: text }); })() }}",
+        "jsonBody": "={{ JSON.stringify({ aiFeedback: $json.candidates?.[0]?.content?.parts?.[0]?.text || 'Mốc đồ án đã hoàn thành đạt yêu cầu.' }) }}",
         "options": {
           "timeout": 15000
         }

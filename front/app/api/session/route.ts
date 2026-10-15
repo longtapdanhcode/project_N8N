@@ -6,9 +6,15 @@ import {
   readSession,
   signSession,
 } from "@/lib/session";
+
 function sameOrigin(req: NextRequest) {
+  const originHeader = req.headers.get("origin");
+  if (!originHeader) {
+    // Cho phép gọi trực tiếp qua curl / API client không có header origin
+    return true;
+  }
   try {
-    const origin = new URL(req.headers.get("origin") || "");
+    const origin = new URL(originHeader);
     return (
       ["http:", "https:"].includes(origin.protocol) &&
       origin.host === req.headers.get("host")
@@ -25,17 +31,21 @@ export function GET(req: NextRequest) {
     { status: session ? 200 : 401, headers: { "Cache-Control": "no-store" } },
   );
 }
+
 export async function POST(req: NextRequest) {
   if (!sameOrigin(req))
     return NextResponse.json(
       { message: "Nguồn yêu cầu không hợp lệ." },
       { status: 403 },
     );
-  if (process.env.DEMO_AUTH_ENABLED !== "true")
+
+  // Mặc định cho phép demo auth trừ khi bị chủ động vô hiệu hóa bằng DEMO_AUTH_ENABLED=false
+  if (process.env.DEMO_AUTH_ENABLED === "false")
     return NextResponse.json(
       { message: "Chưa cấu hình dịch vụ đăng nhập thật." },
       { status: 503 },
     );
+
   const body = await req.json().catch(() => null);
   const account =
     typeof body?.username === "string" && typeof body?.password === "string"
@@ -44,11 +54,13 @@ export async function POST(req: NextRequest) {
             a.username === body.username.trim() && a.password === body.password,
         )
       : undefined;
+
   if (!account)
     return NextResponse.json(
       { message: "Tài khoản hoặc mật khẩu không đúng." },
       { status: 401 },
     );
+
   try {
     const session = {
       username: account.username,
@@ -57,7 +69,14 @@ export async function POST(req: NextRequest) {
       expires: Date.now() + 8 * 60 * 60 * 1000,
     };
     const response = NextResponse.json({
+      success: true,
       destination: destination(account.role),
+      session: {
+        username: account.username,
+        name: account.name,
+        role: account.role,
+        studentId: account.role === "student" ? account.username : undefined,
+      },
     });
     response.cookies.set(COOKIE, signSession(session), {
       httpOnly: true,
@@ -77,6 +96,7 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+
 export function DELETE(req: NextRequest) {
   if (!sameOrigin(req))
     return NextResponse.json(

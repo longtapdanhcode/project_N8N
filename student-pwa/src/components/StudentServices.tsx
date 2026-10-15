@@ -8,11 +8,14 @@ import {
   submitAssignment,
   getSubmission,
   getAttendanceHistory,
+  getTheses,
+  updateMilestone,
   type Course,
   type ClassSection,
   type Profile,
   type SubmissionReceipt,
   type AttendanceRecord,
+  type StudentThesis,
 } from "../lib/api";
 import { db } from "../lib/db";
 import { queueClassAttendance } from "../lib/syncQueue";
@@ -46,6 +49,15 @@ export function Registration({ profile }: { profile: Profile }) {
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [registeredIds, setRegisteredIds] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem(`vku-registered-${profile.studentId}`);
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
   const load = async () => {
     setLoading(true);
     setError("");
@@ -78,6 +90,16 @@ export function Registration({ profile }: { profile: Profile }) {
         result.message ||
           "Máy chủ đã tiếp nhận đăng ký. Kết quả phụ thuộc kiểm tra sĩ số và điều kiện học phần.",
       );
+      setRegisteredIds((prev) => {
+        const next = prev.includes(section.id) ? prev : [...prev, section.id];
+        try {
+          localStorage.setItem(
+            `vku-registered-${profile.studentId}`,
+            JSON.stringify(next),
+          );
+        } catch {}
+        return next;
+      });
       setSections(await getSections());
     } catch (e) {
       setError(message(e));
@@ -129,31 +151,38 @@ export function Registration({ profile }: { profile: Profile }) {
         </div>
       ) : (
         <div className="list">
-          {visible.map((s) => (
-            <div className="grade-row" key={s.id}>
-              <div>
-                <b>{s.course_name}</b>
-                <small>
-                  {s.id} · Thứ {s.schedule_day} · Tiết {s.start_period}–
-                  {s.end_period}
-                </small>
-                <small>
-                  {s.current_enrolled}/{s.max_capacity} sinh viên
-                </small>
+          {visible.map((s) => {
+            const isRegistered = registeredIds.includes(s.id);
+            const isFull = s.current_enrolled >= s.max_capacity;
+            const disabled = !!busy || isRegistered || isFull;
+            return (
+              <div className="grade-row" key={s.id}>
+                <div>
+                  <b>{s.course_name}</b>
+                  <small>
+                    {s.id} · Thứ {s.schedule_day} · Tiết {s.start_period}–
+                    {s.end_period}
+                  </small>
+                  <small>
+                    {s.current_enrolled}/{s.max_capacity} sinh viên
+                  </small>
+                </div>
+                <button
+                  className={isRegistered ? "secondary" : "primary"}
+                  disabled={disabled}
+                  onClick={() => void register(s)}
+                >
+                  {busy === s.id
+                    ? "Đang gửi…"
+                    : isRegistered
+                      ? "Đã đăng ký"
+                      : isFull
+                        ? "Đã đủ chỗ"
+                        : "Đăng ký"}
+                </button>
               </div>
-              <button
-                className="primary"
-                disabled={!!busy || s.current_enrolled >= s.max_capacity}
-                onClick={() => void register(s)}
-              >
-                {busy === s.id
-                  ? "Đang gửi…"
-                  : s.current_enrolled >= s.max_capacity
-                    ? "Đã đủ chỗ"
-                    : "Đăng ký"}
-              </button>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </section>
@@ -591,3 +620,235 @@ export function Attendance({ profile }: { profile: Profile }) {
     </section>
   );
 }
+
+export function Theses({ profile }: { profile: Profile }) {
+  const [thesis, setThesis] = useState<StudentThesis | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [busyMilestoneId, setBusyMilestoneId] = useState("");
+  const [actionNotice, setActionNotice] = useState("");
+
+  const loadThesis = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const list = await getTheses(profile.studentId);
+      const found =
+        list.find((t) => t.studentId === profile.studentId) || list[0] || null;
+      setThesis(found);
+    } catch (e) {
+      setError(message(e));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadThesis();
+  }, [profile.studentId]);
+
+  const handleCompleteMilestone = async (milestoneId: string) => {
+    if (!thesis) return;
+    setBusyMilestoneId(milestoneId);
+    setError("");
+    setActionNotice("");
+    try {
+      const res = await updateMilestone(thesis._id, milestoneId, "COMPLETED");
+      if (res.success && res.thesis) {
+        setThesis(res.thesis);
+        setActionNotice(
+          "Đã cập nhật mốc đồ án thành công và kích hoạt phân tích AI.",
+        );
+      } else {
+        await loadThesis();
+        setActionNotice("Đã gửi cập nhật mốc đồ án.");
+      }
+    } catch (e) {
+      setError(message(e));
+      await loadThesis().catch(() => {});
+    } finally {
+      setBusyMilestoneId("");
+    }
+  };
+
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case "COMPLETED":
+        return "Đã hoàn thành";
+      case "IN_PROGRESS":
+        return "Đang thực hiện";
+      case "PENDING":
+      default:
+        return "Chưa bắt đầu";
+    }
+  };
+
+  const formatDate = (isoStr?: string) => {
+    if (!isoStr) return "";
+    try {
+      return new Date(isoStr).toLocaleDateString("vi-VN");
+    } catch {
+      return isoStr;
+    }
+  };
+
+  return (
+    <section>
+      <div className="section-heading">
+        <h2>Đồ án tốt nghiệp</h2>
+        <button
+          className="secondary"
+          disabled={loading || !!busyMilestoneId}
+          onClick={() => void loadThesis()}
+        >
+          Tải lại
+        </button>
+      </div>
+      <p className="help">
+        Theo dõi tiến độ đề tài và nhận xét tự động từ Cố vấn AI cho từng mốc
+        thời gian.
+      </p>
+
+      <ErrorNotice error={error} />
+      {actionNotice && (
+        <p className="notice" role="status">
+          {actionNotice}
+        </p>
+      )}
+
+      {loading ? (
+        <Loading />
+      ) : !thesis ? (
+        <div className="empty">
+          {error
+            ? "Chưa tải được thông tin đồ án."
+            : "Chưa có dữ liệu đồ án tốt nghiệp cho sinh viên này."}
+        </div>
+      ) : (
+        <>
+          <article className="response">
+            <div className="section-heading">
+              <h3>{thesis.title}</h3>
+              <span className="semester">
+                Tiến độ: <strong>{thesis.progressPercent}%</strong>
+              </span>
+            </div>
+            {thesis.description && (
+              <p className="muted">{thesis.description}</p>
+            )}
+            <div className="lesson-meta">
+              <span>
+                Sinh viên: <b>{thesis.studentName}</b> ({thesis.studentId})
+              </span>
+              {thesis.advisorName && (
+                <span>
+                  GVHD: <b>{thesis.advisorName}</b>
+                </span>
+              )}
+              {thesis.department && <span>{thesis.department}</span>}
+              <span>
+                Điều kiện bảo vệ:{" "}
+                <b
+                  style={{
+                    color:
+                      thesis.defenseStatus === "ELIGIBLE"
+                        ? "var(--primary)"
+                        : "var(--muted)",
+                  }}
+                >
+                  {thesis.defenseStatus === "ELIGIBLE"
+                    ? "Đủ điều kiện"
+                    : "Chưa đủ điều kiện"}
+                </b>
+              </span>
+            </div>
+          </article>
+
+          <h3>Danh sách các mốc tiến độ (Milestones)</h3>
+          {!thesis.milestones || thesis.milestones.length === 0 ? (
+            <div className="empty">Chưa có mốc tiến độ nào.</div>
+          ) : (
+            <div className="list">
+              {thesis.milestones.map((m) => {
+                const isCompleted = m.status === "COMPLETED";
+                const isBusy = busyMilestoneId === m._id;
+                return (
+                  <div className="grade-row" key={m._id} style={{ display: "block" }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "flex-start",
+                        gap: "16px",
+                      }}
+                    >
+                      <div style={{ flex: 1 }}>
+                        <b>{m.title}</b>
+                        <small>
+                          Hạn chót: {formatDate(m.deadline)} · Trạng thái:{" "}
+                          <span
+                            style={{
+                              color: isCompleted
+                                ? "var(--primary)"
+                                : "var(--muted)",
+                              fontWeight: 500,
+                            }}
+                          >
+                            {getStatusLabel(m.status)}
+                          </span>
+                        </small>
+                      </div>
+
+                      <div>
+                        {isCompleted ? (
+                          <button className="secondary" disabled>
+                            Đã hoàn thành
+                          </button>
+                        ) : (
+                          <button
+                            className="primary"
+                            disabled={isBusy || !!busyMilestoneId}
+                            onClick={() => void handleCompleteMilestone(m._id)}
+                          >
+                            {isBusy ? "Đang xử lý & AI…" : "Hoàn thành"}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {m.aiFeedback && (
+                      <div
+                        style={{
+                          marginTop: "12px",
+                          padding: "12px 16px",
+                          background: "var(--bg)",
+                          borderLeft: "3px solid var(--primary)",
+                          borderRadius: "4px",
+                        }}
+                      >
+                        <strong
+                          style={{
+                            display: "block",
+                            fontSize: "var(--text-xs)",
+                            color: "var(--primary)",
+                            marginBottom: "4px",
+                          }}
+                        >
+                          Nhận xét từ Cố vấn AI:
+                        </strong>
+                        <p className="prewrap" style={{ margin: 0 }}>
+                          {m.aiFeedback}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </>
+      )}
+    </section>
+  );
+}
+

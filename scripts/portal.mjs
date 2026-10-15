@@ -12,7 +12,7 @@ const env = {
   AUTH_SESSION_SECRET:
     process.env.AUTH_SESSION_SECRET || randomBytes(48).toString("hex"),
   DEMO_AUTH_ENABLED: "true",
-  NEXT_PUBLIC_PORTAL_MOCK: process.env.NEXT_PUBLIC_PORTAL_MOCK || "true",
+  NEXT_PUBLIC_PORTAL_MOCK: process.env.NEXT_PUBLIC_PORTAL_MOCK || "false",
 };
 function run(file, args, cwd, extra = {}) {
   return new Promise((resolve, reject) => {
@@ -45,7 +45,7 @@ try {
         VITE_BASE_PATH: "/student/",
         VITE_PORTAL: "true",
         VITE_API_URL: "/api/student-data",
-        VITE_USE_MOCK: "true",
+        VITE_USE_MOCK: process.env.VITE_USE_MOCK || "false",
       },
     );
     await mkdir(path.join(root, "front/public/student"), { recursive: true });

@@ -7,6 +7,7 @@ import {
   Users,
   CalendarCheck2,
   BookOpenCheck,
+  ClipboardList,
   Files,
   Settings,
 } from "lucide-react";
@@ -15,6 +16,7 @@ const tabs = [
   ["/teacher/students", "Sinh viên", Users],
   ["/teacher/attendance", "Điểm danh", CalendarCheck2],
   ["/teacher/projects", "Đồ án", BookOpenCheck],
+  ["/teacher/submissions", "Bài tập", ClipboardList],
   ["/teacher/documents", "Tài liệu", Files],
   ["/teacher/settings", "Cài đặt", Settings],
 ] as const;

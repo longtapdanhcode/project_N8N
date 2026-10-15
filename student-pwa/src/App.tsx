@@ -17,6 +17,7 @@ import {
   FAQ,
   Assignments,
   Attendance,
+  Theses,
 } from "./components/StudentServices";
 import { Timetable } from "./components/Timetable";
 import { SyncStatus } from "./components/SyncStatus";
@@ -243,6 +244,7 @@ export function App() {
             ["registration", "Đăng ký học phần"],
             ["faq", "Hỏi đáp"],
             ["assignments", "Bài tập"],
+            ["theses", "Đồ án"],
           ].map(([id, label]) => (
             <button
               key={id}
@@ -261,6 +263,7 @@ export function App() {
           {tab === "registration" && <Registration profile={profile} />}
           {tab === "faq" && <FAQ profile={profile} />}
           {tab === "assignments" && <Assignments profile={profile} />}
+          {tab === "theses" && <Theses profile={profile} />}
         </div>
         <footer>
           <span>VKU · Cổng sinh viên</span>

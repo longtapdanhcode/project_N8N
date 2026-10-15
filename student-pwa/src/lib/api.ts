@@ -48,14 +48,25 @@ export async function request<T>(
     : (response.json() as Promise<T>);
 }
 
-export const getGrades = async (studentId: string) =>
-  USE_MOCK
-    ? request<Grade[]>(apiUrl("grades/me"))
-    : (
-        await request<{
-          grades: { subject: string; score: number; credits: number }[];
-        }>(apiUrl(`students/${encodeURIComponent(studentId)}`))
-      ).grades.map((g) => ({ ...g, course: g.subject }));
+export const getGrades = async (studentId: string) => {
+  try {
+    if (!USE_MOCK) {
+      const data = await request<{
+        grades?: { subject?: string; course?: string; score: number; credits: number }[];
+      }>(apiUrl(`students/${encodeURIComponent(studentId)}`));
+      if (data?.grades && data.grades.length > 0) {
+        return data.grades.map((g) => ({
+          course: g.subject || g.course || "Môn học",
+          credits: g.credits || 3,
+          score: g.score || 0,
+        }));
+      }
+    }
+  } catch (e) {
+    console.warn("Lỗi tải điểm từ API sinh viên, thử fallback grades/me:", e);
+  }
+  return request<Grade[]>(apiUrl("grades/me"));
+};
 export const getTimetable = () =>
   request<TimetableEntry[]>(apiUrl("timetable"));
 
@@ -180,3 +191,50 @@ export const getAttendanceHistory = (studentId: string) =>
       `attendance/history?student_id=${encodeURIComponent(studentId)}&limit=50`,
     ),
   );
+
+export interface Milestone {
+  _id: string;
+  title: string;
+  deadline: string;
+  status: "PENDING" | "IN_PROGRESS" | "COMPLETED";
+  aiFeedback?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface StudentThesis {
+  _id: string;
+  title: string;
+  description?: string;
+  studentId: string;
+  studentName: string;
+  advisorId?: string;
+  advisorName?: string;
+  department?: string;
+  progressPercent: number;
+  defenseStatus: string;
+  milestones: Milestone[];
+}
+
+export const getTheses = async (studentId?: string) => {
+  const query = studentId ? `?search=${encodeURIComponent(studentId)}` : "";
+  const res = await request<{ data: StudentThesis[] }>(apiUrl(`theses${query}`));
+  return res.data;
+};
+
+export const updateMilestone = async (
+  thesisId: string,
+  milestoneId: string,
+  status: "PENDING" | "IN_PROGRESS" | "COMPLETED",
+) => {
+  return await request<{ success: boolean; thesis: StudentThesis }>(
+    apiUrl(
+      `theses/${encodeURIComponent(thesisId)}/milestones/${encodeURIComponent(milestoneId)}`,
+    ),
+    {
+      method: "PATCH",
+      body: JSON.stringify({ status }),
+    },
+    130_000,
+  );
+};
