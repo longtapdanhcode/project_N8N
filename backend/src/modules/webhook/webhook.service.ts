@@ -71,7 +71,7 @@ export class WebhookService {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'X-Signature': signature,
+            'x-signature': `sha256=${signature}`,
             'X-Event-Type': eventType,
           },
           body: rawPayload,
@@ -160,12 +160,14 @@ export class WebhookService {
       return false;
     }
 
+    const cleanSignature = signature.replace(/^sha256=/i, '').trim();
+
     const computedSignature = crypto
       .createHmac('sha256', secretKey)
       .update(rawBody)
       .digest('hex');
 
-    const sourceBuffer = Buffer.from(signature, 'hex');
+    const sourceBuffer = Buffer.from(cleanSignature, 'hex');
     const targetBuffer = Buffer.from(computedSignature, 'hex');
 
     if (sourceBuffer.length !== targetBuffer.length) {

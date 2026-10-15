@@ -32,7 +32,8 @@ services:
       - NODE_ENV=production
       - WEBHOOK_URL=http://vku-n8n.orb.local:5678/
       - GENERIC_TIMEZONE=Asia/Ho_Chi_Minh
-      - NODE_FUNCTION_ALLOW_BUILTIN=crypto
+      - NODE_FUNCTION_ALLOW_BUILTIN=*
+      - NODE_FUNCTION_ALLOW_EXTERNAL=*
     volumes:
       - vku_n8n_data:/home/node/.n8n
 
