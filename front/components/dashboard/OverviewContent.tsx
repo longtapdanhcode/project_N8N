@@ -502,9 +502,7 @@ export const OverviewContent: React.FC<OverviewContentProps> = ({ kpis }) => {
         </div>
 
         <p className="text-xs text-slate-500 border-t border-slate-200 pt-4">
-          {process.env.NEXT_PUBLIC_PORTAL_MOCK === 'true'
-            ? 'Bạn đang xem dữ liệu minh họa. Các thao tác không gửi đến hệ thống đào tạo.'
-            : 'Theo dõi học vụ, xem bài nộp và cập nhật tiến độ trong các mục điều hướng.'}
+          Theo dõi học vụ, xem bài nộp và cập nhật tiến độ trong các mục điều hướng.
         </p>
       </div>
     </>

@@ -1,62 +1,59 @@
 # Cổng chung VKU — localhost:3000
 
-## Chạy ứng dụng
+## Chạy frontend
 
-Tại thư mục gốc `D:\projectN8N\project_N8N`:
+Từ thư mục gốc:
 
 ```powershell
 npm run dev
 ```
 
-Mở http://localhost:3000. Chỉ có một server web ở cổng 3000; không cần chạy riêng PWA ở 5173 hoặc giảng viên ở 3001.
+Mở http://localhost:3000. Giảng viên tại /teacher; sinh viên tại /student/index.html. Không có chế độ demo hoặc tài khoản mẫu trong ứng dụng. Đăng nhập cần backend và tài khoản trong database.
 
-Nếu chưa có dependencies, chạy `npm --prefix front install` và `npm --prefix student-pwa install` trước. Dùng Node.js 22.23 trở lên.
+Backend dùng cổng riêng, thường là 3001. Nếu backend chạy trực tiếp trên máy:
 
-Chạy bản đã build:
+```powershell
+npm --prefix backend run start:dev
+```
+
+Backend cần MongoDB, Redis và các cấu hình dịch vụ thật. Docker Compose của repo mở Redis trên host cổng 6380; cấu hình backend phải khớp địa chỉ Redis thực tế. Không commit .env.
+
+## Cấu hình frontend
+
+Xem front/.env.example. Các API trung gian dùng BACKEND_INTERNAL_URL, rồi BACKEND_URL, NEXT_PUBLIC_BACKEND_URL; mặc định http://127.0.0.1:3001. Địa chỉ nội bộ dùng ở server, không đưa khóa nội bộ vào trình duyệt.
+
+Danh sách bài nộp giảng viên hiện đọc MongoDB trực tiếp phía server qua MONGODB_URI; chưa có API backend tương đương cho danh sách này. Không kết nối được database sẽ báo lỗi, không giả thành danh sách rỗng.
+
+Script chạy gốc tạo khóa phiên ngẫu nhiên nếu chưa có AUTH_SESSION_SECRET. Khởi động lại có thể yêu cầu đăng nhập lại. Triển khai lâu dài nên cấu hình khóa ngẫu nhiên riêng ít nhất 32 ký tự. Không dùng khóa mẫu công khai. Vai trò lấy từ backend; không tự chọn trên form.
+
+## Build
 
 ```powershell
 npm run build
 npm start
 ```
 
-`dev` và `build` kiểm tra TypeScript, build PWA tại `/student/` rồi sao chép tài nguyên sinh viên vào thư mục public của Next.js. Khi sửa mã nguồn sinh viên, dừng và chạy lại lệnh gốc để tạo bản PWA mới. Giao diện giảng viên có hot reload trong chế độ dev.
+Lệnh dev/build kiểm tra TypeScript, build PWA và sao chép sang front/public/student. Khi sửa mã sinh viên, chạy lại lệnh gốc để tạo bản mới. Giảng viên có hot reload khi chạy dev.
 
-## Tài khoản mẫu
+Service Worker chỉ kiểm soát /student/. Bản mới tự kích hoạt; tab đang mở cần tải lại để dùng mã giao diện mới. Dữ liệu Dexie và hàng đợi không bị xóa khi cập nhật.
 
-| Vai trò | Tài khoản | Mật khẩu demo | Trang đến |
-|---|---|---|---|
-| Giảng viên | gv.demo | DemoGV2026! | /teacher |
-| Sinh viên | 23IT112 | DemoSV2026! | /student/index.html |
+## Phạm vi API
 
-Đây là tài khoản công khai cho bản thử nghiệm, không phải thông tin đăng nhập thật. Backend chưa có API xác thực của trường. Vai trò lấy từ danh sách tài khoản phía server; người dùng không tự chọn quyền trong form đăng nhập.
+- /api/student-data/class-sections được xử lý bởi frontend rồi chuyển thành /class-sections tại backend. Proxy chung chỉ chạy sau các route của ứng dụng.
+- API bài nộp, FAQ và điểm yêu cầu phiên sinh viên; danh sách bài nộp yêu cầu phiên giảng viên.
+- Điểm lấy từ backend, không trả điểm mẫu khi dịch vụ lỗi. Không có điểm thật sẽ trả danh sách rỗng.
+- Backend hiện chưa có API lịch học cá nhân: API lịch học trả 501 với thông báo rõ, không dựng thời khóa biểu giả.
+- Mốc đồ án sinh viên chỉ được cập nhật khi backend xác nhận đồ án thuộc MSSV trong phiên.
+- Lỗi backend giữ mã trạng thái tương ứng; không kết nối được trả 502/503.
 
-Phiên dùng cookie HttpOnly/SameSite, ký HMAC, hết hạn sau 8 giờ. Script chạy tạo khóa ngẫu nhiên trong bộ nhớ; khởi động lại server có thể yêu cầu đăng nhập lại. Đăng xuất xóa cookie và bản ghi phiên offline trong tab sinh viên. Cơ chế này chưa có kho thu hồi phiên hoặc quản lý tài khoản production.
-
-## Cấu trúc
-
-- `front/app/page.tsx`: đăng nhập chung.
-- `front/app/teacher/`: các trang giảng viên, giữ bảng sinh viên, điểm danh, đồ án, tài liệu, cài đặt.
-- `front/components/layout/DashboardShell.tsx`: header chữ, tab ngang, khoảng cách và màu navy giống khu vực sinh viên.
-- `front/proxy.ts`: kiểm tra phiên và vai trò trước khi mở trang.
-- `front/app/api/session/route.ts`: đăng nhập, đọc phiên, đăng xuất.
-- `student-pwa/`: giữ chức năng học tập/offline; `PortalGate` xác nhận phiên trước khi hiển thị.
-- `front/app/api/student-data/`: phục vụ mock sinh viên qua cùng cổng, kiểm tra cookie sinh viên.
-- `front/lib/portal-mock.ts`: dữ liệu mẫu cho giao diện giảng viên.
-
-Service worker chỉ kiểm soát `/student/`, không kiểm soát trang đăng nhập hoặc khu vực giảng viên. Offline cho phép tiếp tục phiên sinh viên đã xác nhận trong cùng tab và chưa hết hạn; lần đăng nhập đầu tiên cần mạng. Hàng đợi vẫn được giữ nếu hết phiên hoặc API từ chối xác nhận.
-
-## Kiểm tra
+## Kiểm tra không cần database thật
 
 ```powershell
 npm run test:portal
-node scripts/portal-smoke.mjs
 npm --prefix student-pwa test
+node scripts/portal-smoke.mjs
 ```
 
-Chạy smoke test khi `npm start` đang chạy trên 3000. Nó kiểm tra đăng nhập, sai mật khẩu/Origin, role guard, cả 6 trang giảng viên, PWA và API mẫu cùng cổng, manifest/service worker và đăng xuất. Không dùng thông tin thật, không gọi n8n hay gửi email.
+Smoke test tự mở một HTTP backend fixture trong bộ nhớ và một frontend tạm trên cổng 3099; nó không thêm tài khoản hay chế độ đăng nhập thử vào ứng dụng, không gọi n8n/email/database thật. Nó kiểm tra đăng nhập qua backend, role guard, proxy lớp học phần, các trường dữ liệu bắt buộc và lỗi dịch vụ. Đây là kiểm thử hợp đồng API, không thay cho kiểm thử tích hợp với backend/n8n thật.
 
-## Phạm vi
-
-Lệnh chạy chung hiện mặc định dùng dữ liệu minh họa. Backend/n8n không bị sửa hoặc gọi để thực hiện nghiệp vụ thật. Muốn triển khai thật cần API đăng nhập, tài khoản, quyền dữ liệu, thu hồi phiên và nối gateway API với backend. Chưa kiểm tra bố cục bằng trình duyệt theo yêu cầu trước đó để bạn tự xem.
-
-Nếu backend cũng đang chiếm cổng 3000 trên cùng máy, chuyển backend sang cổng riêng trước; chỉ frontend dành cổng 3000.
+Chưa có database thì đăng nhập ứng dụng thật vẫn báo lỗi xác thực/kết nối. Không tự fallback sang dữ liệu minh họa.

@@ -1,19 +1,30 @@
 // All application HTTP calls live here, shared by the page and service worker.
 import type { TimetableEntry, SyncItem } from "./db";
-export const USE_MOCK = import.meta.env.VITE_USE_MOCK !== "false";
+export const USE_MOCK = import.meta.env.VITE_USE_MOCK === "true";
 export async function portalSession() {
-  const res = await fetch('/api/session', {cache:'no-store'});
-  if (!res.ok) throw new Error('Phiên đăng nhập đã hết hạn.');
-  return res.json() as Promise<{session:{role:string;username:string;name:string;expires:number}}>;
+  const res = await fetch("/api/session", { cache: "no-store" });
+  if (!res.ok) throw new Error("Phiên đăng nhập đã hết hạn.");
+  return res.json() as Promise<{
+    session: {
+      role: string;
+      username: string;
+      studentId?: string;
+      email?: string;
+      name: string;
+      expires: number;
+    };
+  }>;
 }
 export async function logoutPortal() {
-  const res = await fetch('/api/session',{method:'DELETE'});
-  if (!res.ok) throw new Error('Chưa đăng xuất được. Hãy thử lại khi có mạng.');
-  sessionStorage.removeItem('vku-offline-session');
+  const res = await fetch("/api/session", { method: "DELETE" });
+  if (!res.ok) throw new Error("Chưa đăng xuất được. Hãy thử lại khi có mạng.");
+  sessionStorage.removeItem("vku-offline-session");
 }
 const rawBase = (import.meta.env.VITE_API_URL || "/api").trim();
 export const API_BASE = (
-  rawBase.startsWith("http") || rawBase.startsWith("/") ? rawBase : `/${rawBase}`
+  rawBase.startsWith("http") || rawBase.startsWith("/")
+    ? rawBase
+    : `/${rawBase}`
 ).replace(/\/$/, "");
 
 export const apiUrl = (path: string) => {
@@ -52,23 +63,23 @@ export async function request<T>(
 }
 
 export const getGrades = async (studentId: string) => {
-  try {
-    if (!USE_MOCK) {
-      const data = await request<{
-        grades?: { subject?: string; course?: string; score: number; credits: number }[];
-      }>(apiUrl(`students/${encodeURIComponent(studentId)}`));
-      if (data?.grades && data.grades.length > 0) {
-        return data.grades.map((g) => ({
-          course: g.subject || g.course || "Môn học",
-          credits: g.credits || 3,
-          score: g.score || 0,
-        }));
-      }
-    }
-  } catch (e) {
-    console.warn("Lỗi tải điểm từ API sinh viên, thử fallback grades/me:", e);
+  if (USE_MOCK) return request<Grade[]>(apiUrl("grades/me"));
+  const data = await request<{
+    grades?: {
+      subject?: string;
+      course?: string;
+      score: number;
+      credits: number;
+    }[];
+  }>(apiUrl(`students/${encodeURIComponent(studentId)}`));
+  if (Array.isArray(data?.grades)) {
+    return data.grades.map((g) => ({
+      course: g.subject || g.course || "Môn học",
+      credits: g.credits ?? 3,
+      score: g.score,
+    }));
   }
-  return request<Grade[]>(apiUrl("grades/me"));
+  throw new Error("Dữ liệu điểm từ backend không hợp lệ.");
 };
 export const getTimetable = () =>
   request<TimetableEntry[]>(apiUrl("timetable"));
@@ -221,7 +232,9 @@ export interface StudentThesis {
 
 export const getTheses = async (studentId?: string) => {
   const query = studentId ? `?search=${encodeURIComponent(studentId)}` : "";
-  const res = await request<{ data: StudentThesis[] }>(apiUrl(`theses${query}`));
+  const res = await request<{ data: StudentThesis[] }>(
+    apiUrl(`theses${query}`),
+  );
   return res.data;
 };
 

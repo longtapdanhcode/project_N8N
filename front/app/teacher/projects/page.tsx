@@ -1,3 +1,4 @@
+import { connection } from "next/server";
 import React, { Suspense } from 'react';
 import { getTheses, getDashboardKPIs } from '@/lib/api';
 import { DashboardShell } from '@/components/layout/DashboardShell';
@@ -84,6 +85,7 @@ async function ProjectsDataContent({
 }
 
 export default async function ProjectsPage(props: PageProps) {
+  await connection();
   const kpis = await getDashboardKPIs();
 
   return (

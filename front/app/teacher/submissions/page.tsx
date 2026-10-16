@@ -1,3 +1,4 @@
+import { connection } from "next/server";
 import React, { Suspense } from "react";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 import { TableLoadingSkeleton } from "@/components/table";
@@ -95,6 +96,7 @@ async function SubmissionsDataContent({
 }
 
 export default async function SubmissionsPage(props: PageProps) {
+  await connection();
   const kpis = await getDashboardKPIs();
 
   return (

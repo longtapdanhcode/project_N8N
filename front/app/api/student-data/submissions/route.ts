@@ -1,40 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
-
-const BACKEND_URL = (
-  process.env.BACKEND_URL ||
-  process.env.NEXT_PUBLIC_BACKEND_URL ||
-  "http://localhost:3001"
-).replace(/\/$/, "");
+import { COOKIE, readSession } from "@/lib/session";
+import { proxyBackend } from "@/lib/backend";
 
 export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json().catch(() => null);
-    if (!body || typeof body !== "object") {
-      return NextResponse.json(
-        { message: "Dữ liệu bài nộp không hợp lệ." },
-        { status: 400 },
-      );
-    }
-
-    const res = await fetch(`${BACKEND_URL}/submissions`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(body),
-    });
-
-    const data = await res.json().catch(() => null);
-
+  const session = readSession(request.cookies.get(COOKIE)?.value);
+  if (session?.role !== "student")
     return NextResponse.json(
-      data ?? { message: "Phản hồi không hợp lệ từ máy chủ backend." },
-      { status: res.status },
+      { message: "Cần đăng nhập sinh viên." },
+      { status: 401 },
     );
-  } catch (error) {
-    console.error("Lỗi khi chuyển tiếp bài nộp sang Backend NestJS:", error);
+  const body = await request.json().catch(() => null);
+  if (!body || typeof body !== "object" || Array.isArray(body))
     return NextResponse.json(
-      { message: "Không thể kết nối đến máy chủ backend." },
-      { status: 502 },
+      { message: "Dữ liệu bài nộp không hợp lệ." },
+      { status: 400 },
     );
-  }
+  return proxyBackend("/submissions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      ...body,
+      studentId: session.studentId || session.username,
+    }),
+  });
 }

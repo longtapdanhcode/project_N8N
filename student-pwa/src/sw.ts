@@ -19,6 +19,8 @@ declare const self: ServiceWorkerGlobalScope & {
 // Versioned build assets are precached (cache-first), including the offline app shell.
 precacheAndRoute(self.__WB_MANIFEST);
 cleanupOutdatedCaches();
+// Activate the updated shell without requiring every student tab to close first.
+void self.skipWaiting();
 clientsClaim();
 registerRoute(
   new NavigationRoute(createHandlerBoundToURL(`${import.meta.env.BASE_URL}index.html`), {

@@ -14,28 +14,9 @@ export const COOKIE = "vku_session";
 export const destination = (role: Role) =>
   role === "teacher" ? "/teacher" : "/student/index.html";
 
-// Demo accounts only. Replace with the backend identity provider before public deployment.
-export const accounts = [
-  {
-    username: "gv.demo",
-    password: "DemoGV2026!",
-    name: "Trần Quốc Huy",
-    role: "teacher" as const,
-  },
-  {
-    username: "23IT112",
-    password: "DemoSV2026!",
-    name: "Lê Bảo Long",
-    role: "student" as const,
-  },
-];
-
-const DEFAULT_AUTH_SESSION_SECRET =
-  "vku_auth_session_secret_production_key_32chars_2026_super_secure";
-
 export function signSession(
   session: Session,
-  secret = process.env.AUTH_SESSION_SECRET || DEFAULT_AUTH_SESSION_SECRET,
+  secret = process.env.AUTH_SESSION_SECRET,
 ): string {
   if (!secret || secret.length < 32)
     throw new Error(
@@ -47,7 +28,7 @@ export function signSession(
 
 export function readSession(
   token?: string,
-  secret = process.env.AUTH_SESSION_SECRET || DEFAULT_AUTH_SESSION_SECRET,
+  secret = process.env.AUTH_SESSION_SECRET,
 ): Session | null {
   if (!token || !secret || secret.length < 32) return null;
   try {

@@ -8,10 +8,7 @@ import {
   type Session,
 } from "@/lib/session";
 
-const BACKEND_URL =
-  process.env.BACKEND_INTERNAL_URL ||
-  process.env.NEXT_PUBLIC_BACKEND_URL ||
-  "http://127.0.0.1:3001";
+import { BACKEND_URL } from "@/lib/backend";
 
 function sameOrigin(req: NextRequest) {
   const originHeader = req.headers.get("origin");
@@ -71,6 +68,8 @@ export async function POST(req: NextRequest) {
         username: identifier,
         password,
       }),
+      cache: "no-store",
+      signal: AbortSignal.timeout(30_000),
     });
 
     const backendData = await backendRes.json().catch(() => ({}));
@@ -81,19 +80,28 @@ export async function POST(req: NextRequest) {
           message:
             backendData?.message || "Tài khoản hoặc mật khẩu không chính xác.",
         },
-        { status: backendRes.status === 401 ? 401 : 400 },
+        { status: backendRes.ok ? 502 : backendRes.status },
       );
     }
 
     const user = backendData.user;
+    const backendRole = String(user.role).toUpperCase();
+    if (!["STUDENT", "TEACHER", "ADMIN"].includes(backendRole)) {
+      return NextResponse.json(
+        { message: "Vai trò tài khoản không hợp lệ." },
+        { status: 403 },
+      );
+    }
     const normalizedRole: Role =
-      String(user.role).toUpperCase() === "TEACHER" ? "teacher" : "student";
+      backendRole === "STUDENT" ? "student" : "teacher";
 
     const session: Session = {
       username: user.username || identifier,
       name: user.name || user.fullName || "Người dùng",
       role: normalizedRole,
-      studentId: user.studentId || (normalizedRole === "student" ? user.username : undefined),
+      studentId:
+        user.studentId ||
+        (normalizedRole === "student" ? user.username : undefined),
       email: user.email,
       department: user.department,
       expires: Date.now() + 8 * 60 * 60 * 1000,
@@ -123,7 +131,6 @@ export async function POST(req: NextRequest) {
 
     return response;
   } catch (err: unknown) {
-    console.error("Lỗi khi kết nối đến Backend Auth:", err);
     return NextResponse.json(
       {
         message:

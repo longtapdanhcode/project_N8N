@@ -1,3 +1,4 @@
+import { connection } from "next/server";
 import React, { Suspense } from 'react';
 import { getAttendanceRecords, getClassList, getDashboardKPIs } from '@/lib/api';
 import { AttendanceStatus } from '@/types';
@@ -94,6 +95,7 @@ async function AttendanceDataContent({
 }
 
 export default async function AttendancePage(props: PageProps) {
+  await connection();
   const kpis = await getDashboardKPIs();
 
   return (

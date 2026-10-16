@@ -8,7 +8,7 @@ let client: MongoClient | null = null;
 
 async function getDb() {
   if (!client) {
-    client = new MongoClient(MONGODB_URI);
+    client = new MongoClient(MONGODB_URI, { serverSelectionTimeoutMS: 5000 });
     await client.connect();
   }
   return client.db();
@@ -34,7 +34,7 @@ function detectCourseName(title: string): string {
   if (lower.includes("dữ liệu") || lower.includes("database") || lower.includes("sql")) {
     return "Cơ sở dữ liệu";
   }
-  return "Lập trình Web";
+  return "Chưa xác định môn";
 }
 
 export async function fetchSubmissions(options: {
@@ -50,6 +50,7 @@ export async function fetchSubmissions(options: {
   const search = (options.search || "").trim();
   const statusFilter = options.status && options.status !== "ALL" ? options.status : "";
 
+
   try {
     const db = await getDb();
     const submissionsCol = db.collection("submissions");
@@ -63,10 +64,6 @@ export async function fetchSubmissions(options: {
       const name = s.full_name || s.fullName || s.name;
       if (name) studentMap.set(id, name);
     }
-    // Static fallbacks for standard test accounts
-    if (!studentMap.has("23IT112")) studentMap.set("23IT112", "Lê Bảo Long");
-    if (!studentMap.has("23IT143")) studentMap.set("23IT143", "Trần Văn Nam");
-
     const query: Record<string, any> = {};
 
     if (statusFilter) {
@@ -74,7 +71,7 @@ export async function fetchSubmissions(options: {
     }
 
     if (search) {
-      const regex = new RegExp(search, "i");
+      const regex = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
       // Find student IDs matching search name
       const matchingStudentIds: string[] = [];
       for (const [sId, sName] of studentMap.entries()) {
@@ -117,7 +114,7 @@ export async function fetchSubmissions(options: {
         content: doc.content || "",
         criteria: Array.isArray(doc.criteria) ? doc.criteria : [],
         status: doc.status || "PENDING",
-        model: doc.model || "gemini-3.5-flash-lite",
+        model: doc.model || undefined,
         feedback: doc.feedback
           ? {
               summary: doc.feedback.summary || "",
@@ -140,13 +137,6 @@ export async function fetchSubmissions(options: {
       totalPages: Math.ceil(total / pageSize),
     };
   } catch (error) {
-    console.error("Lỗi khi truy vấn submissions từ MongoDB:", error);
-    return {
-      data: [],
-      total: 0,
-      page,
-      pageSize,
-      totalPages: 0,
-    };
+    throw new Error("Không tải được danh sách bài nộp. Kiểm tra kết nối database.");
   }
 }

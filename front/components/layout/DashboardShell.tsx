@@ -83,9 +83,7 @@ export function DashboardShell({
         <footer className="portal-footer">
           <span>VKU · Cổng giảng viên</span>
           <span>
-            {process.env.NEXT_PUBLIC_PORTAL_MOCK === "true"
-              ? "Dữ liệu minh họa"
-              : "Hệ thống đào tạo"}
+            Hệ thống đào tạo
           </span>
         </footer>
       </main>

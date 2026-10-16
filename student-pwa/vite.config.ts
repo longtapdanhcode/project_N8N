@@ -7,7 +7,7 @@ export default defineConfig(({ mode }) => {
   return {
     base: env.VITE_BASE_PATH || "/",
     plugins: [
-      ...(env.VITE_USE_MOCK !== "false"
+      ...(env.VITE_USE_MOCK === "true"
         ? [mockApiPlugin(env.VITE_API_URL || "/api")]
         : []),
       VitePWA({
@@ -25,8 +25,8 @@ export default defineConfig(({ mode }) => {
           start_url: env.VITE_BASE_PATH || "/",
           scope: env.VITE_BASE_PATH || "/",
           display: "standalone",
-          theme_color: "#203870",
-          background_color: "#F6F7F9",
+          theme_color: "#0B0F14",
+          background_color: "#0B0F14",
           icons: [
             {
               src: `${env.VITE_BASE_PATH || "/"}icon.svg`,

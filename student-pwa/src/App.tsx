@@ -120,16 +120,13 @@ export function App() {
 
   const handleLogout = async () => {
     try {
-      // Xóa cookie phiên làm việc
-      await fetch('/api/session', { method: 'DELETE' });
+      await logoutPortal();
+      localStorage.removeItem('vku_user');
+      sessionStorage.clear();
+      window.location.replace('/');
     } catch (err) {
-      console.error('Logout error:', err);
+      setLogoutError(err instanceof Error ? err.message : 'Chưa đăng xuất được. Hãy thử lại.');
     }
-    // Dọn dẹp cache cục bộ nếu có
-    localStorage.removeItem('vku_user');
-    sessionStorage.clear();
-    // Chuyển hướng cứng về trang đăng nhập
-    window.location.replace('/');
   };
 
   return (
@@ -180,13 +177,14 @@ export function App() {
             }}
           >
             <p className="help">
-              Thông tin dùng cho bản thử nghiệm, chưa thay thế đăng nhập.
+              MSSV lấy từ tài khoản đăng nhập. Kiểm tra email và học kỳ trước khi đăng ký học phần.
             </p>
             <label className="field">
               MSSV
               <input
                 required
                 maxLength={100}
+                readOnly={import.meta.env.VITE_PORTAL === "true"}
                 value={draft.studentId}
                 onChange={(e) =>
                   setDraft({ ...draft, studentId: e.target.value })

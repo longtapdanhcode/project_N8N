@@ -3,6 +3,23 @@ import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
 import { signSession, readSession, destination } from "../front/lib/session.ts";
 const secret = randomBytes(48).toString("hex");
+test("missing configuration never falls back to a public session key", () => {
+  const previous = process.env.AUTH_SESSION_SECRET;
+  try {
+    delete process.env.AUTH_SESSION_SECRET;
+    const session = {
+      username: "test",
+      name: "Kiểm thử",
+      role: "student",
+      expires: Date.now() + 10000,
+    };
+    assert.throws(() => signSession(session), /Chưa cấu hình/);
+    assert.equal(readSession(signSession(session, secret)), null);
+  } finally {
+    if (previous === undefined) delete process.env.AUTH_SESSION_SECRET;
+    else process.env.AUTH_SESSION_SECRET = previous;
+  }
+});
 test("signed session preserves server role and routes correctly", () => {
   for (const role of ["teacher", "student"]) {
     const session = {

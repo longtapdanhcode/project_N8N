@@ -1,5 +1,10 @@
 {
   "name": "vku-portal",
   "private": true,
-  "scripts": {"dev":"node scripts/portal.mjs dev","build":"node scripts/portal.mjs build","start":"node scripts/portal.mjs start","test:portal":"node --experimental-strip-types --test scripts/session.test.mjs"}
+  "scripts": {
+    "dev": "node scripts/portal.mjs dev",
+    "build": "node scripts/portal.mjs build",
+    "start": "node scripts/portal.mjs start",
+    "test:portal": "node --experimental-strip-types --test scripts/session.test.mjs"
+  }
 }

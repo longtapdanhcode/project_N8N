@@ -4,6 +4,7 @@ import {
   getSubmission,
   registerCourse,
   sendMutation,
+  getGrades,
   type ClassSection,
 } from "../../src/lib/api";
 import { StudentDB } from "../../src/lib/db";
@@ -21,6 +22,18 @@ const section: ClassSection = {
 };
 afterEach(() => vi.unstubAllGlobals());
 describe("backend workflow contracts", () => {
+  it("shows empty real grades without substituting example scores", async () => {
+    const fetch = vi.fn().mockResolvedValue(Response.json({ grades: [] }));
+    vi.stubGlobal("fetch", fetch);
+    expect(await getGrades("student-without-grades")).toEqual([]);
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+  it("surfaces grade API failures instead of retrying with fake fallback data", async () => {
+    const fetch = vi.fn().mockResolvedValue(Response.json({ message: "Máy chủ điểm đang lỗi" }, { status: 503 }));
+    vi.stubGlobal("fetch", fetch);
+    await expect(getGrades("student-api-error")).rejects.toThrow("Máy chủ điểm đang lỗi");
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
   it("keeps offline attendance on HTTP 200 failure, retries with the original LWW timestamp, and prevents duplicate clicks", async () => {
     const db = new StudentDB(`services-${crypto.randomUUID()}`);
     try {

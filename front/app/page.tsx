@@ -81,11 +81,7 @@ export default function LoginPage() {
     }
   };
 
-  const handleQuickFill = (user: string, pass: string) => {
-    setUsername(user);
-    setPassword(pass);
-    setError("");
-  };
+
 
   return (
     <div className="hero">
@@ -253,24 +249,7 @@ export default function LoginPage() {
               {busy ? "AUTHENTICATING…" : "ACCESS PORTAL"}
             </button>
 
-            <div className="panel__quick-group">
-              <button
-                type="button"
-                className="btn--ghost btn--quick"
-                onClick={() => handleQuickFill("23IT143", "123456")}
-                disabled={busy}
-              >
-                QUICK FILL: LÊ BẢO LONG (23IT143)
-              </button>
-              <button
-                type="button"
-                className="btn--ghost btn--quick"
-                onClick={() => handleQuickFill("gv.minh", "123456")}
-                disabled={busy}
-              >
-                QUICK FILL: TS. NGUYỄN CÔNG MINH (GV.MINH)
-              </button>
-            </div>
+
           </form>
 
           <a href="#support" className="panel__invite">

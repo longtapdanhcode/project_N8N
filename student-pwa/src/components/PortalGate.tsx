@@ -27,13 +27,13 @@ export function PortalGate({ children }: { children: ReactNode }) {
         sessionStorage.setItem("vku-offline-session", JSON.stringify(session));
         const profile =
           JSON.parse(localStorage.getItem("vku-profile") || "null") || {};
+        const studentId = session.studentId || session.username;
         localStorage.setItem(
           "vku-profile",
           JSON.stringify({
             ...profile,
-            studentId: session.username,
-            email:
-              profile.studentId === session.username ? profile.email || "" : "",
+            studentId,
+            email: session.email || (profile.studentId === studentId ? profile.email || "" : ""),
             semester: profile.semester || "2026-2027-1",
           }),
         );

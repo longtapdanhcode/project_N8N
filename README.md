@@ -1,5 +1,7 @@
 ## Cổng frontend chung — cổng 3000
 
+Đăng nhập dùng tài khoản từ backend/database. Xem cách cấu hình và kiểm tra tại [PORTAL_3000.md](PORTAL_3000.md).
+
 Chạy `npm run dev` tại thư mục gốc, mở http://localhost:3000 và đăng nhập bằng tài khoản mẫu. Xem [hướng dẫn cổng chung](PORTAL_3000.md). Hướng dẫn này thay thế cách chạy hai cổng frontend riêng bên dưới.
 
 # VKU AI Student Support System (Project N8N)

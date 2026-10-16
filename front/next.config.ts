@@ -12,6 +12,8 @@ const cspHeader = `
   frame-ancestors 'none';
 `.replace(/\s{2,}/g, ' ').trim();
 
+const backendUrl = (process.env.BACKEND_INTERNAL_URL || process.env.BACKEND_URL || process.env.NEXT_PUBLIC_BACKEND_URL || "http://127.0.0.1:3001").replace(/\/$/, "");
+
 const nextConfig: NextConfig = {
   async redirects() {
     return [
@@ -56,14 +58,15 @@ const nextConfig: NextConfig = {
   },
 
   async rewrites() {
-    return [
+    // Keep app API handlers ahead of the generic backend proxy.
+    const fallback = [
       {
         source: '/api/:path*',
-        destination: 'http://127.0.0.1:3001/:path*',
+        destination: `${backendUrl}/:path*`,
       },
       {
         source: '/student/api/:path*',
-        destination: 'http://127.0.0.1:3001/:path*',
+        destination: `${backendUrl}/:path*`,
       },
       // Fallback rewrites in case relative URLs are requested from /student/index.html
       {
@@ -80,25 +83,26 @@ const nextConfig: NextConfig = {
       },
       {
         source: '/student/class-sections',
-        destination: 'http://127.0.0.1:3001/class-sections',
+        destination: `${backendUrl}/class-sections`,
       },
       {
         source: '/student/courses',
-        destination: 'http://127.0.0.1:3001/courses',
+        destination: `${backendUrl}/courses`,
       },
       {
         source: '/student/attendance/:path*',
-        destination: 'http://127.0.0.1:3001/attendance/:path*',
+        destination: `${backendUrl}/attendance/:path*`,
       },
       {
         source: '/student/theses/:path*',
-        destination: 'http://127.0.0.1:3001/theses/:path*',
+        destination: `${backendUrl}/theses/:path*`,
       },
       {
         source: '/student/theses',
-        destination: 'http://127.0.0.1:3001/theses',
+        destination: `${backendUrl}/theses`,
       },
     ];
+    return { fallback };
   },
 
   /* config options here */

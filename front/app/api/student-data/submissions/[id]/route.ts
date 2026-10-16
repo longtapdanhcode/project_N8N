@@ -1,53 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
-
-const BACKEND_URL = (
-  process.env.BACKEND_URL ||
-  process.env.NEXT_PUBLIC_BACKEND_URL ||
-  "http://localhost:3001"
-).replace(/\/$/, "");
+import { COOKIE, readSession } from "@/lib/session";
+import { proxyBackend } from "@/lib/backend";
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const session = readSession(request.cookies.get(COOKIE)?.value);
+  if (session?.role !== "student")
+    return NextResponse.json(
+      { message: "Cần đăng nhập sinh viên." },
+      { status: 401 },
+    );
+  const token = request.headers.get("x-submission-token");
+  if (!token)
+    return NextResponse.json(
+      { message: "Thiếu mã truy cập bài nộp." },
+      { status: 401 },
+    );
   const { id } = await params;
-  if (!id) {
-    return NextResponse.json(
-      { message: "Mã bài nộp không hợp lệ." },
-      { status: 400 },
-    );
-  }
-
-  try {
-
-    const token = request.headers.get("x-submission-token");
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-    };
-    if (token) {
-      headers["x-submission-token"] = token;
-    }
-
-    const res = await fetch(
-      `${BACKEND_URL}/submissions/${encodeURIComponent(id)}`,
-      {
-        method: "GET",
-        headers,
-        cache: "no-store",
-      },
-    );
-
-    const data = await res.json().catch(() => null);
-
-    return NextResponse.json(
-      data ?? { message: "Phản hồi không hợp lệ từ máy chủ backend." },
-      { status: res.status },
-    );
-  } catch (error) {
-    console.error(`Lỗi khi tra cứu bài nộp ${id} từ Backend NestJS:`, error);
-    return NextResponse.json(
-      { message: "Không thể kết nối đến máy chủ backend." },
-      { status: 502 },
-    );
-  }
+  return proxyBackend(`/submissions/${encodeURIComponent(id)}`, {
+    headers: { "x-submission-token": token },
+  });
 }
