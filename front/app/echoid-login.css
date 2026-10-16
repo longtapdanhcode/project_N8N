@@ -11,7 +11,7 @@
   --fill-solid: rgba(255, 255, 255, 0.10);
   --gutter: clamp(20px, 5vw, 100px);
   --ease-premium: cubic-bezier(0.16, 1, 0.3, 1);
-  --font-display: "Sora", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-display: var(--font-be-vietnam-pro), "Be Vietnam Pro", sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
 }
 
@@ -425,7 +425,7 @@ body.menu-open {
 
 .btn--solid {
   width: 100%;
-  border-radius: 0;
+  border-radius: 6px;
   border: none;
   padding: clamp(17px, 1.6vw, 25px) 20px;
   font-family: var(--font-mono);
@@ -433,14 +433,14 @@ body.menu-open {
   text-transform: uppercase;
   letter-spacing: 0.22em;
   font-size: clamp(11px, 0.78vw, 14px);
-  background: var(--fill-solid);
-  color: #ffffff;
+  background: #67e8f9;
+  color: #071216;
   cursor: pointer;
   transition: background-color 0.25s ease;
 }
 
 .btn--solid:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.17);
+  background: #a5f3fc;
 }
 
 .btn--solid:disabled {

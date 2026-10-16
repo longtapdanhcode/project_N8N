@@ -1,0 +1,28 @@
+/* Keep geometry and palette aligned with front/app/workspace.css. */
+.workspace-label { font: 11px/1.6 ui-monospace, Consolas, monospace; letter-spacing: .16em; color: var(--primary); margin: 0 0 12px; }
+.student-portal { min-height: 100vh; }
+.student-portal header { padding: 16px 32px; position: sticky; top: 0; z-index: 20; }
+.student-portal main { max-width: 1440px; padding: 40px 40px 24px; margin-left: 224px; }
+.student-portal nav { position: fixed; left: 0; top: 73px; bottom: 0; width: 224px; display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 32px 16px; background: var(--surface); border-right: 1px solid var(--border); border-bottom: 0; z-index: 10; }
+.student-portal nav::before { content: 'KHÔNG GIAN SINH VIÊN'; font: 10px/1.6 ui-monospace, monospace; letter-spacing: .12em; color: var(--muted); margin: 0 12px 16px; }
+.student-portal .tab { padding: 12px; border: 1px solid transparent; border-radius: 6px; text-align: left; white-space: normal; }
+.student-portal .tab.active { background: var(--primary-soft); color: var(--primary); border-color: #25515c; }
+.student-portal .tab:hover { background: var(--primary-soft); }
+.page-heading { padding-bottom: 24px; border-bottom: 1px solid var(--border); }
+.semester, .lesson-time, .lesson-detail p { font-family: ui-monospace, Consolas, monospace; }
+.lesson { border-left: 2px solid var(--primary); }
+.lesson:hover, .grade-row:hover { background: #17232c; }
+button, a, input, textarea { transition: background-color .15s, border-color .15s; }
+.primary { color: #071216; font-weight: 600; }
+.primary:disabled { opacity: .45; color: #071216; }
+.secondary:hover { border-color: var(--primary); color: var(--primary); }
+.profile { font-size: 12px; }
+::selection { background: var(--primary); color: #071216; }
+@media(max-width:900px) {
+  .student-portal header { padding: 16px; }
+  .student-portal main { margin-left: 0; padding: 24px 20px 100px; }
+  .student-portal nav { top: auto; bottom: 0; width: 100%; flex-direction: row; padding: 8px; border-top: 1px solid var(--border); overflow-x: auto; gap: 4px; }
+  .student-portal nav::before { display: none; }
+  .student-portal .tab { flex-direction: column; flex: 1 0 76px; font-size: 11px; padding: 8px; gap: 6px; white-space: nowrap; }
+}
+@media(prefers-reduced-motion:reduce) { *, *::before, *::after { transition: none !important; animation: none !important; } }

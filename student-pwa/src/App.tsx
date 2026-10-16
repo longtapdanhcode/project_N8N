@@ -4,6 +4,7 @@ import {
   GraduationCap,
   WifiOff,
   AlertCircle,
+  CalendarCheck2, BookOpenCheck, MessageSquare, ClipboardList, FolderKanban,
 } from "lucide-react";
 import {
   getGrades,
@@ -132,7 +133,7 @@ export function App() {
   };
 
   return (
-    <>
+    <div className="student-portal">
       <header>
         <a className="brand" href="/">
           VKU <span>Sinh viên</span>
@@ -141,18 +142,7 @@ export function App() {
           <SyncStatus online={online} />
           <button
             onClick={handleLogout}
-            className="px-3.5 py-1.5 text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 hover:text-red-600 transition-colors cursor-pointer shadow-xs"
-            style={{
-              padding: "6px 14px",
-              fontSize: "12px",
-              fontWeight: 500,
-              color: "#334155",
-              backgroundColor: "#ffffff",
-              border: "1px solid #e2e8f0",
-              borderRadius: "8px",
-              cursor: "pointer",
-              minHeight: "32px",
-            }}
+            className="secondary"
           >
             Đăng xuất
           </button>
@@ -166,6 +156,7 @@ export function App() {
         )}
         <div className="page-heading">
           <div>
+            <p className="workspace-label">VKU / KHÔNG GIAN HỌC TẬP</p>
             <h1>Học tập</h1>
             <p className="muted">
               MSSV <span className="separator">/</span> {profile.studentId}
@@ -256,20 +247,20 @@ export function App() {
             <GraduationCap />
             Điểm số
           </button>
-          {[
-            ["attendance", "Điểm danh"],
-            ["registration", "Đăng ký học phần"],
-            ["faq", "Hỏi đáp"],
-            ["assignments", "Bài tập"],
-            ["theses", "Đồ án"],
-          ].map(([id, label]) => (
+          {([
+            ["attendance", "Điểm danh", CalendarCheck2],
+            ["registration", "Đăng ký học phần", BookOpenCheck],
+            ["faq", "Hỏi đáp", MessageSquare],
+            ["assignments", "Bài tập", ClipboardList],
+            ["theses", "Đồ án", FolderKanban],
+          ] as const).map(([id, label, Icon]) => (
             <button
               key={id}
               className={`tab ${tab === id ? "active" : ""}`}
               aria-current={tab === id ? "page" : undefined}
               onClick={() => setTab(id)}
             >
-              {label}
+              <Icon />{label}
             </button>
           ))}
         </nav>
@@ -289,6 +280,6 @@ export function App() {
           </span>
         </footer>
       </main>
-    </>
+    </div>
   );
 }

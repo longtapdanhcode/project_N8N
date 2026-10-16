@@ -201,7 +201,7 @@ export const OverviewContent: React.FC<OverviewContentProps> = ({ kpis }) => {
           </div>
 
           {/* Attendance warning */}
-          <div className="p-4 rounded-xl border border-amber-200 bg-amber-50/40 shadow-2xs">
+          <div className="attendance-warning-card p-4 rounded-xl border border-amber-200 bg-amber-50/40 shadow-2xs">
             <div className="flex items-center justify-between text-amber-600 mb-2">
               <span className="text-xs font-semibold">Cảnh báo điểm danh</span>
               <div className="w-8 h-8 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center">
@@ -241,7 +241,7 @@ export const OverviewContent: React.FC<OverviewContentProps> = ({ kpis }) => {
             <div className="text-2xl font-bold text-slate-900 tabular-nums">{kpis.totalTheses}</div>
             <span className="text-[11px] text-slate-400 flex items-center gap-1 mt-0.5">
               <BarChart3 className="w-3 h-3 text-indigo-500" />
-              {Math.round(kpis.completedMilestonesRate * 100)}% milestones hoàn thành
+              {Math.round(kpis.completedMilestonesRate)}% mốc đã hoàn thành
             </span>
           </div>
         </div>
@@ -492,7 +492,7 @@ export const OverviewContent: React.FC<OverviewContentProps> = ({ kpis }) => {
                 <h4 className="text-sm font-bold text-slate-900">Đồ án Tốt nghiệp</h4>
               </div>
               <p className="text-xs text-slate-500 leading-relaxed">
-                Quản lý {kpis.totalTheses} đề tài, {Math.round(kpis.completedMilestonesRate * 100)}% milestones đã hoàn thành.
+                Quản lý {kpis.totalTheses} đề tài, {Math.round(kpis.completedMilestonesRate)}% mốc đã hoàn thành.
               </p>
               <span className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 group-hover:gap-2 transition-all">
                 Xem bảng đồ án <ArrowRight className="w-3 h-3" />
@@ -501,36 +501,11 @@ export const OverviewContent: React.FC<OverviewContentProps> = ({ kpis }) => {
           </Link>
         </div>
 
-        {/* ============ System Info Footer ============ */}
-        <div className="p-4 rounded-xl border border-slate-200 bg-white shadow-2xs">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
-                <ShieldCheck className="w-4 h-4" />
-              </div>
-              <div>
-                <span className="text-xs font-bold text-slate-900">Hệ thống hoạt động bình thường</span>
-                <p className="text-[11px] text-slate-400">
-                  Next.js 16 • NestJS • Google Gemini 2.5 Flash • n8n Workflow • BullMQ • MongoDB
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 text-[11px]">
-              <span className="flex items-center gap-1 text-emerald-600 font-semibold">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                Backend API
-              </span>
-              <span className="flex items-center gap-1 text-emerald-600 font-semibold">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                AI Engine
-              </span>
-              <span className="flex items-center gap-1 text-emerald-600 font-semibold">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                Webhook n8n
-              </span>
-            </div>
-          </div>
-        </div>
+        <p className="text-xs text-slate-500 border-t border-slate-200 pt-4">
+          {process.env.NEXT_PUBLIC_PORTAL_MOCK === 'true'
+            ? 'Bạn đang xem dữ liệu minh họa. Các thao tác không gửi đến hệ thống đào tạo.'
+            : 'Theo dõi học vụ, xem bài nộp và cập nhật tiến độ trong các mục điều hướng.'}
+        </p>
       </div>
     </>
   );

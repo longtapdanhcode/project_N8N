@@ -1,0 +1,57 @@
+/* Shared cyber palette; scoped so the login artwork keeps its own layout. */
+.teacher-portal {
+  color-scheme: dark;
+  --primary: #67e8f9; --primary-hover: #a5f3fc; --primary-soft: #102c34;
+  --danger: #fda4af; --bg: #0b0f14; --surface: #121920; --border: #283540;
+  --text: #e6edf3; --muted: #9aaab8;
+  --warning: #fde68a; --warning-soft: #29251a; --warning-border: #5b4c2c;
+  --bg-app: var(--bg); --bg-card: var(--surface); --text-main: var(--text); --text-muted: var(--muted);
+  background: var(--bg); color: var(--text);
+}
+.teacher-portal .portal-header { padding: 16px 32px; position: sticky; top: 0; z-index: 30; }
+.teacher-portal .portal-main { max-width: 1600px; margin-left: 224px; padding: 40px 40px 24px; }
+.workspace-label { font: 11px/1.6 ui-monospace, Consolas, monospace; letter-spacing: .16em; color: var(--primary); margin: 0 0 12px; }
+.teacher-portal .portal-heading { padding-bottom: 24px; border-bottom: 1px solid var(--border); }
+.teacher-portal .portal-heading h1 { font-size: 24px; letter-spacing: -.025em; }
+.teacher-portal .portal-heading > span { font: 12px/1.6 ui-monospace, Consolas, monospace; }
+.teacher-portal .portal-tabs { position: fixed; left: 0; top: 73px; bottom: 0; width: 224px; display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 32px 16px; background: var(--surface); border-right: 1px solid var(--border); border-bottom: 0; z-index: 20; }
+.teacher-portal .portal-tabs::before { content: 'KHÔNG GIAN GIẢNG VIÊN'; font: 10px/1.6 ui-monospace, monospace; letter-spacing: .12em; color: var(--muted); margin: 0 12px 16px; }
+.teacher-portal .portal-tabs a { padding: 12px; border: 1px solid transparent; border-radius: 6px; white-space: normal; }
+.teacher-portal .portal-tabs a[aria-current] { color: var(--primary); border-color: #25515c; background: var(--primary-soft); }
+.teacher-portal .portal-tabs a:hover { background: var(--primary-soft); }
+.teacher-portal :is(input, select, textarea) { background-color: var(--bg); color: var(--text); border-color: var(--border); }
+.teacher-portal :is(input,textarea)::placeholder { color: var(--muted); }
+.teacher-portal .portal-header button { color: var(--text); }
+.teacher-portal .portal-header button:hover { border-color: var(--primary); color: var(--primary); }
+.teacher-portal :is(.bg-white,.bg-surface) { background-color: var(--surface); }
+.teacher-portal :is(.bg-slate-50,.bg-slate-100,.bg-gray-50,.bg-gray-100) { background-color: #17212b; }
+.teacher-portal :is(.bg-slate-200,.bg-gray-200) { background-color: var(--border); }
+.teacher-portal :is(.text-slate-900,.text-slate-800,.text-slate-700,.text-gray-900,.text-gray-800,.text-text-title,.text-text-body) { color: var(--text); }
+.teacher-portal :is(.text-slate-600,.text-slate-500,.text-slate-400,.text-gray-500,.text-text-subtle) { color: var(--muted); }
+.teacher-portal :is([class*="border-slate-"],[class*="border-gray-"],.border-border-subtle) { border-color: var(--border); }
+.teacher-portal :is([class*="divide-slate-"],[class*="divide-gray-"]) > :not(:last-child) { border-color: var(--border); }
+.teacher-portal :is(.hover\:bg-slate-50,.hover\:bg-slate-100,.hover\:bg-gray-50):hover { background-color: #1c2a35; }
+.teacher-portal :is(.bg-blue-600,.bg-blue-700,.bg-indigo-600,.bg-accent-600) { background: var(--primary); color: #071216; }
+.teacher-portal :is(.bg-blue-600,.bg-blue-700,.bg-accent-600):hover { background: var(--primary-hover); }
+.teacher-portal :is([class*="text-red-"],[class*="text-rose-"],[class*="text-amber-"],[class*="text-orange-"]) { color: var(--danger); }
+.teacher-portal :is([class*="bg-red-50"],[class*="bg-rose-50"],[class*="bg-amber-50"],[class*="bg-orange-50"]) { background-color: #301e28; }
+.teacher-portal :is(.bg-rose-100,.bg-amber-100,.bg-red-100,.bg-orange-100) { background-color: #482b35; }
+.teacher-portal :is([class*="border-red-"],[class*="border-rose-"],[class*="border-amber-"]) { border-color: #59323e; }
+.teacher-portal .attendance-warning-card { background-color: var(--warning-soft); border-color: var(--warning-border); }
+.teacher-portal .attendance-warning-card [class*="text-amber-"] { color: var(--warning); }
+.teacher-portal .attendance-warning-card .bg-amber-100 { background-color: #40371f; }
+.teacher-portal [class*="bg-gradient"] { background-image: none; background-color: var(--surface); }
+.teacher-portal th { color: var(--muted); font-size: 11px; letter-spacing: .04em; }
+.teacher-portal td { border-color: var(--border); }
+.teacher-portal button, .teacher-portal a { transition: background-color .15s, border-color .15s; }
+.teacher-portal ::selection { background: var(--primary); color: #071216; }
+@media(max-width:900px) {
+  .teacher-portal .portal-header { padding: 16px; }
+  .teacher-portal .portal-main { margin-left: 0; padding: 24px 20px 100px; }
+  .teacher-portal .portal-heading { display: block; }
+  .teacher-portal .portal-heading > span { display: block; margin-top: 12px; }
+  .teacher-portal .portal-tabs { top: auto; bottom: 0; width: 100%; flex-direction: row; padding: 8px; border-top: 1px solid var(--border); overflow-x: auto; gap: 4px; }
+  .teacher-portal .portal-tabs::before { display: none; }
+  .teacher-portal .portal-tabs a { flex-direction: column; flex: 1 0 76px; font-size: 11px; padding: 8px; gap: 6px; white-space: nowrap; }
+}
+@media(prefers-reduced-motion:reduce) { .teacher-portal *, .teacher-portal *::before, .teacher-portal *::after { transition: none !important; animation: none !important; } }

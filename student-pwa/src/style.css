@@ -1,18 +1,19 @@
 :root {
+  color-scheme: dark;
   font-family: "Be Vietnam Pro", sans-serif;
   font-synthesis: none;
   font-size: 14px;
   font-weight: 400;
   font-variant-numeric: tabular-nums;
-  --primary: #203870;
-  --primary-hover: #1a2d5a;
-  --primary-soft: #e8ecf5;
-  --danger: #c02030;
-  --bg: #f6f7f9;
-  --surface: #ffffff;
-  --border: #e3e6eb;
-  --text: #1b2230;
-  --muted: #5b6577;
+  --primary: #67e8f9;
+  --primary-hover: #a5f3fc;
+  --primary-soft: #102c34;
+  --danger: #fda4af;
+  --bg: #0b0f14;
+  --surface: #121920;
+  --border: #283540;
+  --text: #e6edf3;
+  --muted: #9aaab8;
   --text-xs: 12px;
   --text-sm: 14px;
   --text-md: 16px;

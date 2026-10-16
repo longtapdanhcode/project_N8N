@@ -56,6 +56,7 @@ export function DashboardShell({
       <main className="portal-main">
         <div className="portal-heading">
           <div>
+            <p className="workspace-label">VKU / KHÔNG GIAN GIẢNG DẠY</p>
             <h1>{activeTitle}</h1>
             <p className="portal-muted">Quản lý học tập và hỗ trợ sinh viên</p>
           </div>

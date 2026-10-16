@@ -7,6 +7,7 @@ import "@fontsource/be-vietnam-pro/vietnamese-500.css";
 import "@fontsource/be-vietnam-pro/latin-600.css";
 import "@fontsource/be-vietnam-pro/vietnamese-600.css";
 import "./style.css";
+import "./workspace.css";
 import { App } from "./App";
 import { Capacitor } from "@capacitor/core";
 import { PortalGate } from "./components/PortalGate";
