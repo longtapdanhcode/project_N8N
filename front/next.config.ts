@@ -12,8 +12,6 @@ const cspHeader = `
   frame-ancestors 'none';
 `.replace(/\s{2,}/g, ' ').trim();
 
-const backendUrl = (process.env.BACKEND_INTERNAL_URL || process.env.BACKEND_URL || process.env.NEXT_PUBLIC_BACKEND_URL || "http://127.0.0.1:3001").replace(/\/$/, "");
-
 const nextConfig: NextConfig = {
   async redirects() {
     return [
@@ -58,16 +56,9 @@ const nextConfig: NextConfig = {
   },
 
   async rewrites() {
-    // Keep app API handlers ahead of the generic backend proxy.
+    // No rewrite may reach the backend directly: it has no auth of its own.
+    // Browser traffic goes through /api/student-data and /api/teacher-data, which check the session.
     const fallback = [
-      {
-        source: '/api/:path*',
-        destination: `${backendUrl}/:path*`,
-      },
-      {
-        source: '/student/api/:path*',
-        destination: `${backendUrl}/:path*`,
-      },
       // Fallback rewrites in case relative URLs are requested from /student/index.html
       {
         source: '/student/timetable',
@@ -83,23 +74,23 @@ const nextConfig: NextConfig = {
       },
       {
         source: '/student/class-sections',
-        destination: `${backendUrl}/class-sections`,
+        destination: '/api/student-data/class-sections',
       },
       {
         source: '/student/courses',
-        destination: `${backendUrl}/courses`,
+        destination: '/api/student-data/courses',
       },
       {
         source: '/student/attendance/:path*',
-        destination: `${backendUrl}/attendance/:path*`,
+        destination: '/api/student-data/attendance/:path*',
       },
       {
         source: '/student/theses/:path*',
-        destination: `${backendUrl}/theses/:path*`,
+        destination: '/api/student-data/theses/:path*',
       },
       {
         source: '/student/theses',
-        destination: `${backendUrl}/theses`,
+        destination: '/api/student-data/theses',
       },
     ];
     return { fallback };

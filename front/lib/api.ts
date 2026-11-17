@@ -7,11 +7,11 @@ import {
   FilterOptions, 
   MilestoneStatus,
 } from '../types';
+import { BACKEND_URL } from './backend';
 
+// Browser calls use the session-checked teacher proxy; server components call the backend directly.
 const BACKEND_BASE_URL =
-  process.env.NEXT_PUBLIC_BACKEND_URL ||
-  process.env.NEXT_PUBLIC_API_URL ||
-  'http://localhost:3001';
+  typeof window === 'undefined' ? BACKEND_URL : '/api/teacher-data';
 
 /**
  * Fetch paginated, filtered, and searched students directly from live database
@@ -254,18 +254,42 @@ export async function fetchAttendanceHistory(classSectionId?: string): Promise<a
 }
 
 /**
- * Call backend AI RAG assistant (/ai/ask)
+ * Call backend AI RAG assistant (/api/ai/ask) with n8n workflow integration
  */
 export async function askAcademicAI(question: string) {
   try {
-    const response = await fetch(`${BACKEND_BASE_URL}/ai/ask`, {
+    const endpoint =
+      typeof window !== 'undefined'
+        ? '/api/ai/ask'
+        : `${BACKEND_BASE_URL}/ai/ask`;
+
+    const response = await fetch(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ question }),
     });
 
     if (response.ok) {
-      return await response.json();
+      const data = await response.json();
+      return {
+        answer: data.answer || '',
+        confidence_score: Number(data.confidence_score ?? data.confidence ?? 1),
+        citations: Array.isArray(data.citations)
+          ? data.citations
+          : Array.isArray(data.sources)
+            ? data.sources.map((s: any) =>
+                typeof s === 'string' ? s : s.title || s.id,
+              )
+            : ['Quy chế học vụ VKU'],
+        requires_human_escalation: Boolean(
+          data.requires_human_escalation ?? data.needsEscalation ?? false,
+        ),
+        suggested_actions: data.suggested_actions || [
+          'Tra cứu danh sách sinh viên',
+          'Liên hệ Cố vấn học tập',
+        ],
+        dispatched_to_n8n: Boolean(data.dispatched_to_n8n),
+      };
     }
   } catch (error) {
     console.error('Failed to invoke AI RAG assistant:', error);
@@ -278,6 +302,7 @@ export async function askAcademicAI(question: string) {
     citations: ['Cổng thông tin đào tạo VKU'],
     requires_human_escalation: true,
     suggested_actions: ['Tra cứu danh sách sinh viên', 'Liên hệ Cố vấn học tập'],
+    dispatched_to_n8n: false,
   };
 }
 

@@ -104,11 +104,31 @@ async function handle(request: NextRequest) {
     const value = request.headers.get(name);
     if (value) headers.set(name, value);
   }
-  return proxyBackend(`/${subPath}${query.size ? `?${query}` : ""}`, {
-    method: request.method,
-    headers,
-    ...(body === undefined ? {} : { body }),
-  });
+  const response = await proxyBackend(
+    `/${subPath}${query.size ? `?${query}` : ""}`,
+    {
+      method: request.method,
+      headers,
+      ...(body === undefined ? {} : { body }),
+    },
+  );
+  if (subPath !== "theses" || !response.ok) return response;
+  // Backend search is a partial match; only return the student's own theses.
+  const result = await response.json().catch(() => null);
+  if (!Array.isArray(result?.data))
+    return NextResponse.json(
+      { message: "Dữ liệu đồ án từ backend không hợp lệ." },
+      { status: 502 },
+    );
+  return NextResponse.json(
+    {
+      ...result,
+      data: result.data.filter(
+        (thesis: { studentId?: string }) => thesis.studentId === studentId,
+      ),
+    },
+    { headers: { "Cache-Control": "no-store" } },
+  );
 }
 export {
   handle as GET,

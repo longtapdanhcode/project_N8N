@@ -56,7 +56,17 @@ const backend = createServer(async (req, res) => {
         : [{ subject: "Môn kiểm thử", score: 0, credits: 2 }],
     });
   if (url.pathname === "/theses")
-    return send({ data: [{ _id: "own-thesis", studentId: "SV_FIXTURE" }] });
+    return send({
+      data: [
+        { _id: "own-thesis", studentId: "SV_FIXTURE" },
+        { _id: "other-thesis", studentId: "SV_FIXTURE_OTHER" },
+      ],
+    });
+  if (url.pathname === "/students") return send({ data: [], total: 0 });
+  if (url.pathname === "/academic-warning/scan" && req.method === "POST")
+    return send({ success: true, violations: [] });
+  if (url.pathname === "/ai/ask" && req.method === "POST")
+    return send({ answer: "Phản hồi kiểm thử" });
   if (url.pathname === "/submissions" && req.method === "POST")
     return send({
       submissionId: "submission-fixture",
@@ -156,6 +166,21 @@ try {
     (await request("/api/student-data/submissions", jsonPost({}))).status,
     401,
   );
+  // The portal must never forward unauthenticated traffic straight to the backend.
+  for (const [path, options] of [
+    ["/api/students/SV_FIXTURE", {}],
+    ["/api/test-webhook", jsonPost({})],
+    ["/api/documents/ingest-text", jsonPost({ title: "x", content: "x" })],
+    ["/student/api/students", {}],
+  ]) {
+    assert.equal((await request(path, options)).status, 404, path);
+  }
+  assert.equal(received.length, 0, "No backend call without a session");
+  assert.equal((await request("/api/teacher-data/students")).status, 401);
+  assert.equal(
+    (await request("/api/ai/ask", jsonPost({ question: "Fixture" }))).status,
+    401,
+  );
   assert.equal(
     (
       await request(
@@ -215,6 +240,60 @@ try {
   );
   assert.equal((await request("/api/submissions", { headers })).status, 401);
   assert.equal((await request("/teacher", { headers })).status, 307);
+  assert.equal(
+    (await request("/api/teacher-data/students", { headers })).status,
+    401,
+  );
+  assert.equal(
+    (await request("/api/ai/ask", jsonPost({ question: "Fixture" }, student)))
+      .status,
+    401,
+  );
+  const teacherHeaders = { Cookie: teacher };
+  assert.equal(
+    (await request("/api/teacher-data/students?page=2", { headers: teacherHeaders }))
+      .status,
+    200,
+  );
+  assert.equal(received.at(-1).query.get("page"), "2");
+  for (const path of [
+    "/api/teacher-data/test-hybrid-search",
+    "/api/teacher-data/auth/login",
+    "/api/teacher-data/api/internal/submissions/s1",
+  ]) {
+    assert.equal(
+      (await request(path, { headers: teacherHeaders })).status,
+      404,
+      path,
+    );
+  }
+  assert.equal(
+    (
+      await request(
+        "/api/teacher-data/academic-warning/scan",
+        jsonPost({ limit: 1 }, teacher),
+      )
+    ).status,
+    200,
+  );
+  assert.equal(received.at(-1).body.limit, 1);
+  assert.equal(
+    (
+      await request(
+        "/api/ai/ask",
+        jsonPost({ question: "Fixture", userId: "FORGED" }, teacher),
+      )
+    ).status,
+    200,
+  );
+  assert.equal(received.at(-1).body.userId, "fixture-teacher");
+  const theses = await (
+    await request("/api/student-data/theses", { headers })
+  ).json();
+  assert.deepEqual(
+    theses.data.map((thesis) => thesis._id),
+    ["own-thesis"],
+  );
   assert.equal(
     (await request("/api/student-data/students/ANOTHER_STUDENT", { headers }))
       .status,
