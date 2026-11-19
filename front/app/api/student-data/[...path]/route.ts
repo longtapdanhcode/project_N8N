@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { COOKIE, readSession } from "@/lib/session";
 import { proxyBackend } from "@/lib/backend";
 import { GET as grades } from "../../grades/me/route";
+import { GET as timetable } from "../../timetable/route";
 
 async function handle(request: NextRequest) {
   const session = readSession(request.cookies.get(COOKIE)?.value);
@@ -16,11 +17,8 @@ async function handle(request: NextRequest) {
   );
   if (subPath === "grades/me" && request.method === "GET")
     return grades(request);
-  if (subPath === "timetable")
-    return NextResponse.json(
-      { message: "Backend chưa cung cấp API lịch học cá nhân." },
-      { status: 501 },
-    );
+  if (subPath === "timetable" && request.method === "GET")
+    return timetable(request);
   const studentId = session.studentId || session.username;
   const query = new URLSearchParams(request.nextUrl.search);
   const allowedRead = [

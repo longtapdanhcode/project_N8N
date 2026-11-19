@@ -49,6 +49,24 @@ const backend = createServer(async (req, res) => {
       ? send({ message: "Fixture unavailable" }, 503)
       : send([{ id: "SECTION_FIXTURE", course_name: "Môn kiểm thử" }]);
   if (url.pathname === "/courses") return send([]);
+  if (url.pathname === "/students/SV_FIXTURE/timetable")
+    return send([
+      {
+        id: "SV_FIXTURE:SECTION_FIXTURE:2026-11-16",
+        studentId: "SV_FIXTURE",
+        classSectionId: "SECTION_FIXTURE",
+        course: "Môn kiểm thử",
+        code: "SECTION_FIXTURE",
+        date: "2026-11-16",
+        start: "07:00",
+        end: "09:30",
+        room: "",
+        lecturer: "",
+        attendance: "not-marked",
+        updatedAt: 0,
+        scheduled: true,
+      },
+    ]);
   if (url.pathname === "/students/SV_FIXTURE")
     return send({
       grades: emptyGrades
@@ -417,10 +435,19 @@ try {
       id === "own-thesis" ? 200 : 403,
     );
   }
-  assert.equal(
-    (await request("/api/student-data/timetable", { headers })).status,
-    501,
-  );
+  for (const path of [
+    "/api/student-data/timetable?from=2026-11-16&studentId=FORGED",
+    "/api/timetable?from=2026-11-16&student_id=FORGED",
+  ]) {
+    const timetable = await request(path, { headers });
+    assert.equal(timetable.status, 200, path);
+    assert.equal((await timetable.json())[0].classSectionId, "SECTION_FIXTURE");
+    // MSSV lấy từ phiên; chỉ from/to/semester được chuyển tiếp.
+    assert.equal(received.at(-1).path, "/students/SV_FIXTURE/timetable");
+    assert.equal(received.at(-1).query.get("from"), "2026-11-16");
+    assert.equal(received.at(-1).query.get("studentId"), null);
+    assert.equal(received.at(-1).query.get("student_id"), null);
+  }
   const logout = await request("/api/session", { method: "DELETE", headers });
   assert.equal(logout.status, 200);
   assert.ok(/Max-Age=0/.test(logout.headers.get("set-cookie")));
