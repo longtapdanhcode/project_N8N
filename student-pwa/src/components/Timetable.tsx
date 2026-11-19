@@ -2,7 +2,12 @@ import { useEffect, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { MapPin, RefreshCw, AlertCircle, Check, Clock3 } from "lucide-react";
 import { db } from "../lib/db";
-import { refreshTimetable } from "../lib/timetable";
+import {
+  isTimetableLesson,
+  refreshTimetable,
+  todayIso,
+  weekLabel,
+} from "../lib/timetable";
 import { queueAttendance } from "../lib/syncQueue";
 import { scheduleSync } from "../lib/sync";
 
@@ -12,7 +17,7 @@ export function Timetable() {
   const entries = useLiveQuery(() =>
     db.timetable
       .orderBy("[date+start]")
-      .filter((item) => !item.classSectionId)
+      .filter(isTimetableLesson)
       .toArray(),
   );
   const queue = useLiveQuery(() => db.syncQueue.toArray());
@@ -58,7 +63,9 @@ export function Timetable() {
       <div className="section-heading">
         <div>
           <h2>Lịch học trong tuần</h2>
-          <p className="help">12–18 tháng 10, 2026</p>
+          <p className="help">
+            {weekLabel(entries?.[0]?.date ?? todayIso())}
+          </p>
         </div>
         <button
           className="secondary icon-button"
@@ -106,13 +113,17 @@ export function Timetable() {
                 <div className="lesson-detail">
                   <h3>{entry.course}</h3>
                   <p>{entry.code}</p>
-                  <div className="lesson-meta">
-                    <span>
-                      <MapPin />
-                      {entry.room}
-                    </span>
-                    <span>{entry.lecturer}</span>
-                  </div>
+                  {(entry.room || entry.lecturer) && (
+                    <div className="lesson-meta">
+                      {entry.room && (
+                        <span>
+                          <MapPin />
+                          {entry.room}
+                        </span>
+                      )}
+                      {entry.lecturer && <span>{entry.lecturer}</span>}
+                    </div>
+                  )}
                 </div>
                 <div className="lesson-action">
                   {entry.attendance === "pending" ? (

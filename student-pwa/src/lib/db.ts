@@ -14,6 +14,8 @@ export interface TimetableEntry {
   studentId?: string;
   classSectionId?: string;
   deviceId?: string;
+  // true: buổi trong lịch học từ backend; false/thiếu: buổi tự thêm ở mục Điểm danh.
+  scheduled?: boolean;
 }
 
 export interface SyncItem {

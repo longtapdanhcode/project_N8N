@@ -42,7 +42,7 @@ Service Worker chỉ kiểm soát /student/. Bản mới tự kích hoạt; tab 
 - /api/student-data/class-sections được xử lý bởi frontend rồi chuyển thành /class-sections tại backend. Proxy chung chỉ chạy sau các route của ứng dụng.
 - API bài nộp, FAQ và điểm yêu cầu phiên sinh viên; danh sách bài nộp yêu cầu phiên giảng viên.
 - Điểm lấy từ backend, không trả điểm mẫu khi dịch vụ lỗi. Không có điểm thật sẽ trả danh sách rỗng.
-- Backend hiện chưa có API lịch học cá nhân: API lịch học trả 501 với thông báo rõ, không dựng thời khóa biểu giả.
+- Lịch học cá nhân: /api/timetable (và /api/student-data/timetable) chuyển thành /students/:MSSV-trong-phiên/timetable tại backend; chỉ chuyển tiếp from, to, semester. Backend dựng lịch từ enrollments + class_sections (học kỳ mới nhất, mặc định tuần hiện tại theo giờ Việt Nam) và đánh dấu đã điểm danh theo bảng attendance. CSDL chưa có phòng học/giảng viên nên hai trường này để trống. Giờ tiết đặt qua TIMETABLE_PERIODS (xem backend/.env.example).
 - Mốc đồ án sinh viên chỉ được cập nhật khi backend xác nhận đồ án thuộc MSSV trong phiên.
 - Lỗi backend giữ mã trạng thái tương ứng; không kết nối được trả 502/503.
 

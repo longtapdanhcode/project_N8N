@@ -5,8 +5,10 @@ import {
   CourseRegistrationController,
   CoursesController,
   ClassSectionsController,
+  StudentTimetableController,
 } from './course-registration.controller';
 import { CourseRegistrationService } from './course-registration.service';
+import { TimetableService } from './timetable.service';
 
 @Module({
   imports: [WebhookModule, AiModule],
@@ -14,8 +16,9 @@ import { CourseRegistrationService } from './course-registration.service';
     CourseRegistrationController,
     CoursesController,
     ClassSectionsController,
+    StudentTimetableController,
   ],
-  providers: [CourseRegistrationService],
+  providers: [CourseRegistrationService, TimetableService],
   exports: [CourseRegistrationService],
 })
 export class CourseRegistrationModule {}

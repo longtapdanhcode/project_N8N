@@ -1,6 +1,27 @@
-import { Body, Controller, Get, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 import { CourseRegistrationService } from './course-registration.service';
 import { CourseRegistrationDto } from './dto/course-registration.dto';
+import { TimetableService } from './timetable.service';
+
+@Controller('students')
+export class StudentTimetableController {
+  constructor(private readonly timetableService: TimetableService) {}
+
+  /** GET /students/:id/timetable?from=YYYY-MM-DD&to=YYYY-MM-DD&semester=... */
+  @Get(':id/timetable')
+  async getTimetable(
+    @Param('id') id: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('semester') semester?: string,
+  ) {
+    return await this.timetableService.getStudentTimetable(id, {
+      from,
+      to,
+      semester,
+    });
+  }
+}
 
 @Controller('course-registration')
 export class CourseRegistrationController {
