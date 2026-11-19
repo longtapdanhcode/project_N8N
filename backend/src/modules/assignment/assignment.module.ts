@@ -15,6 +15,7 @@ import {
   SubmissionCallbackController,
 } from './submission.controller';
 import { InternalApiGuard } from '../webhook/internal-api.guard';
+import { PushModule } from '../push/push.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { InternalApiGuard } from '../webhook/internal-api.guard';
       name: 'submission-queue',
     }),
     WebhookModule,
+    PushModule,
     MongooseModule.forFeature([
       { name: 'Submission', schema: SubmissionSchema },
       { name: Student.name, schema: StudentSchema },

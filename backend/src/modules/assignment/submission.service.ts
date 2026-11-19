@@ -151,12 +151,21 @@ export class SubmissionService {
   }
 
   async notify(body: any) {
+    return (await this.recordNotification(body)).response;
+  }
+
+  /**
+   * Lưu thông báo kết quả và cho biết có phải lần đầu không, kèm dữ liệu để gửi
+   * thông báo đẩy. n8n gọi lại nhiều lần thì chỉ lần đầu có `firstTime: true`.
+   */
+  async recordNotification(body: any) {
     const id = requiredText(body?.submissionId, 'submissionId', 100);
     const doc = await this.find(id);
     if (body.studentId !== doc.studentId)
       throw new BadRequestException('studentId không khớp');
     if (doc.status !== 'COMPLETED' || !doc.feedback)
       throw new ConflictException('Chưa lưu nhận xét bài nộp');
+    const firstTime = !doc.notification;
     // Persist one notification per submission so repeated n8n calls do not create duplicates.
     await this.model.updateOne(
       { _id: id },
@@ -170,6 +179,12 @@ export class SubmissionService {
         },
       },
     );
-    return { success: true, submissionId: id, notificationSaved: true };
+    return {
+      response: { success: true, submissionId: id, notificationSaved: true },
+      firstTime,
+      studentId: doc.studentId,
+      assignmentTitle: doc.assignmentTitle,
+      score: doc.feedback.score,
+    };
   }
 }

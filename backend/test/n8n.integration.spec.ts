@@ -10,6 +10,7 @@ import {
 } from '../src/modules/assignment/submission.controller';
 import { SubmissionService } from '../src/modules/assignment/submission.service';
 import { SubmissionListService } from '../src/modules/assignment/submission-list.service';
+import { PushService } from '../src/modules/push/push.service';
 import { InternalApiGuard } from '../src/modules/webhook/internal-api.guard';
 import { WebhookService } from '../src/modules/webhook/webhook.service';
 import { ThesisFeedbackController } from '../src/modules/thesis/thesis.controller';
@@ -24,6 +25,7 @@ describe('n8n API contracts', () => {
   });
   const queue = { add: jest.fn() };
   const webhook = { sendToN8n: jest.fn() };
+  const push = { notifyStudent: jest.fn().mockResolvedValue({ sent: 1, removed: 0 }) };
   const thesisModel = { findOneAndUpdate: jest.fn(), findById: jest.fn() };
   const auth = { 'x-internal-api-key': 'internal-test-key' };
   let id: string;
@@ -47,6 +49,7 @@ describe('n8n API contracts', () => {
       providers: [
         SubmissionService,
         { provide: SubmissionListService, useValue: { list: jest.fn() } },
+        { provide: PushService, useValue: push },
         InternalApiGuard,
         ThesisService,
         {
@@ -172,6 +175,12 @@ describe('n8n API contracts', () => {
         .expect(201);
     expect(docs.size).toBe(1);
     expect(docs.get(id).notification.score).toBe(8);
+    // Two n8n callbacks, one push to the student's devices.
+    expect(push.notifyStudent).toHaveBeenCalledTimes(1);
+    expect(push.notifyStudent).toHaveBeenCalledWith(
+      '23IT123',
+      expect.objectContaining({ body: expect.stringContaining('8/10') }),
+    );
     const response = await request(app.getHttpServer())
       .get(`/submissions/${id}`)
       .set('x-submission-token', token)
