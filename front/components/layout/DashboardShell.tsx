@@ -43,6 +43,9 @@ export function DashboardShell({
               try {
                 const res = await fetch("/api/session", { method: "DELETE" });
                 if (!res.ok) throw new Error();
+                // Full reload on logout on purpose: drops client state and any cached
+                // portal shell (see PORTAL_3000.md), which router navigation would keep.
+                // eslint-disable-next-line @next/next/no-location-assign-relative-destination
                 window.location.assign("/");
               } catch {
                 setError("Chưa đăng xuất được. Vui lòng thử lại.");

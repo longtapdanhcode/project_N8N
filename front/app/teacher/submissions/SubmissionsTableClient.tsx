@@ -28,9 +28,12 @@ export const SubmissionsTableClient: React.FC<SubmissionsTableClientProps> = ({
   const [submissions, setSubmissions] = useState<Submission[]>(initialData);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  React.useEffect(() => {
+  // Reset local rows when the server sends a new page (adjust state during render).
+  const [prevInitialData, setPrevInitialData] = useState(initialData);
+  if (initialData !== prevInitialData) {
+    setPrevInitialData(initialData);
     setSubmissions(initialData);
-  }, [initialData]);
+  }
 
   const showToast = (msg: string) => {
     setToastMessage(msg);

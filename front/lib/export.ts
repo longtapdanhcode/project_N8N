@@ -16,7 +16,7 @@ function downloadCSV(csvContent: string, filename: string) {
   URL.revokeObjectURL(url);
 }
 
-function escapeCSV(val: any): string {
+function escapeCSV(val: unknown): string {
   if (val === null || val === undefined) return '""';
   const str = String(val).replace(/"/g, '""');
   return `"${str}"`;

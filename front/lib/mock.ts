@@ -238,7 +238,7 @@ export function create500MockStudents(): Student[] {
     const gpaRaw = 2.0 + rng.next() * 2.0; // 2.00 to 4.00
     const gpa = Math.round(gpaRaw * 100) / 100;
 
-    let totalCredits = 135;
+    const totalCredits = 135;
     let creditsEarned = 35;
     if (year === '21') {
       creditsEarned = rng.range(115, 135);

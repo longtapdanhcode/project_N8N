@@ -212,48 +212,6 @@ export function ingestDocument(input: {title: string; content: string; category:
 }
 
 /**
- * Fetch courses from live Supabase
- */
-export async function fetchCourses(): Promise<any[]> {
-  try {
-    const res = await fetch(`${BACKEND_BASE_URL}/courses`, { cache: 'no-store' });
-    if (res.ok) return await res.json();
-  } catch (error) {
-    console.error('Failed to fetch courses from live backend:', error);
-  }
-  return [];
-}
-
-/**
- * Fetch class sections with live enrollment headcount from Supabase
- */
-export async function fetchClassSections(): Promise<any[]> {
-  try {
-    const res = await fetch(`${BACKEND_BASE_URL}/class-sections`, { cache: 'no-store' });
-    if (res.ok) return await res.json();
-  } catch (error) {
-    console.error('Failed to fetch class sections from live backend:', error);
-  }
-  return [];
-}
-
-/**
- * Fetch attendance audit / history from Supabase
- */
-export async function fetchAttendanceHistory(classSectionId?: string): Promise<any> {
-  try {
-    const url = classSectionId
-      ? `${BACKEND_BASE_URL}/attendance/history?class_section_id=${encodeURIComponent(classSectionId)}`
-      : `${BACKEND_BASE_URL}/attendance/history`;
-    const res = await fetch(url, { cache: 'no-store' });
-    if (res.ok) return await res.json();
-  } catch (error) {
-    console.error('Failed to fetch attendance history from live backend:', error);
-  }
-  return { data: [], total: 0 };
-}
-
-/**
  * Call backend AI RAG assistant (/api/ai/ask) with n8n workflow integration
  */
 export async function askAcademicAI(question: string) {
@@ -277,7 +235,7 @@ export async function askAcademicAI(question: string) {
         citations: Array.isArray(data.citations)
           ? data.citations
           : Array.isArray(data.sources)
-            ? data.sources.map((s: any) =>
+            ? data.sources.map((s: string | { title?: string; id?: string }) =>
                 typeof s === 'string' ? s : s.title || s.id,
               )
             : ['Quy chế học vụ VKU'],

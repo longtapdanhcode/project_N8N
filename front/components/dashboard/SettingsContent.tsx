@@ -2,12 +2,7 @@
 
 import React, { useState } from 'react';
 import {
-  Settings,
-  ShieldCheck,
-  Bell,
-  Database,
   Zap,
-  Globe,
   Clock,
   CheckCircle2,
   AlertTriangle,
