@@ -9,6 +9,7 @@ import {
   SubmissionCallbackController,
 } from '../src/modules/assignment/submission.controller';
 import { SubmissionService } from '../src/modules/assignment/submission.service';
+import { SubmissionListService } from '../src/modules/assignment/submission-list.service';
 import { InternalApiGuard } from '../src/modules/webhook/internal-api.guard';
 import { WebhookService } from '../src/modules/webhook/webhook.service';
 import { ThesisFeedbackController } from '../src/modules/thesis/thesis.controller';
@@ -45,6 +46,7 @@ describe('n8n API contracts', () => {
       ],
       providers: [
         SubmissionService,
+        { provide: SubmissionListService, useValue: { list: jest.fn() } },
         InternalApiGuard,
         ThesisService,
         {
