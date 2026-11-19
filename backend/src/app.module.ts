@@ -14,6 +14,7 @@ import { AttendanceModule } from './modules/attendance/attendance.module';
 import { CourseRegistrationModule } from './modules/course-registration/course-registration.module';
 import { StudentModule } from './modules/student/student.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { SyncModule } from './modules/sync/sync.module';
 import { FaqController } from './faq.controller';
 
 @Module({
@@ -52,6 +53,7 @@ import { FaqController } from './faq.controller';
     CourseRegistrationModule,
     StudentModule,
     AuthModule,
+    SyncModule,
   ],
   controllers: [AppController, FaqController],
   providers: [AppService],

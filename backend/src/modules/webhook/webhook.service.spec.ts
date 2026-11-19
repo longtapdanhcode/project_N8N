@@ -41,10 +41,10 @@ describe('WebhookService', () => {
     const payload = { assignmentId: 'asg-1', score: 95 };
     const eventType = 'ASSIGNMENT_ANALYZED';
     const rawPayload = JSON.stringify(payload);
-    const expectedSignature = crypto
+    const expectedSignature = `sha256=${crypto
       .createHmac('sha256', mockSecret)
       .update(rawPayload, 'utf8')
-      .digest('hex');
+      .digest('hex')}`;
 
     const mockFetch = jest.fn().mockResolvedValue({
       ok: true,
@@ -66,7 +66,7 @@ describe('WebhookService', () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-Signature': expectedSignature,
+          'x-signature': expectedSignature,
           'X-Event-Type': eventType,
         },
         body: rawPayload,

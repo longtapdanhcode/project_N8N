@@ -58,6 +58,7 @@ export const OverviewContent: React.FC<OverviewContentProps> = ({ kpis }) => {
     citations: string[];
     requires_human_escalation: boolean;
     suggested_actions?: string[];
+    dispatched_to_n8n?: boolean;
   } | null>(null);
 
   // Toast
@@ -389,6 +390,16 @@ export const OverviewContent: React.FC<OverviewContentProps> = ({ kpis }) => {
                       <ShieldCheck className="w-3 h-3 text-emerald-600" />
                       Độ tin cậy: <strong className="text-slate-900">{Math.round(aiResponse.confidence_score * 100)}%</strong>
                     </span>
+                    {aiResponse.dispatched_to_n8n ? (
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
+                        <Sparkles className="w-2.5 h-2.5 text-emerald-600" />
+                        Đã qua luồng n8n
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-600 border border-slate-200">
+                        AI Nội bộ (Fallback)
+                      </span>
+                    )}
                     {aiResponse.requires_human_escalation && (
                       <Badge variant="warning" size="sm" dot>
                         Cần xác minh thủ công
