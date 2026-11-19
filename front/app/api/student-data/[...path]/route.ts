@@ -20,6 +20,29 @@ async function handle(request: NextRequest) {
   if (subPath === "timetable" && request.method === "GET")
     return timetable(request);
   const studentId = session.studentId || session.username;
+  // Web Push: the device subscribes for the MSSV in the session, never one from the body.
+  if (subPath === "push/vapid-public-key" && request.method === "GET")
+    return proxyBackend("/push/vapid-public-key");
+  if (
+    subPath === "push/subscriptions" &&
+    (request.method === "POST" || request.method === "DELETE")
+  ) {
+    const data = await request.json().catch(() => null);
+    if (!data || typeof data !== "object" || Array.isArray(data))
+      return NextResponse.json(
+        { message: "Dữ liệu không hợp lệ." },
+        { status: 400 },
+      );
+    return proxyBackend("/push/subscriptions", {
+      method: request.method,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(
+        request.method === "POST"
+          ? { studentId, subscription: data.subscription }
+          : { studentId, endpoint: data.endpoint },
+      ),
+    });
+  }
   const query = new URLSearchParams(request.nextUrl.search);
   const allowedRead = [
     "courses",

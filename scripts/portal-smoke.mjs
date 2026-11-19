@@ -49,6 +49,9 @@ const backend = createServer(async (req, res) => {
       ? send({ message: "Fixture unavailable" }, 503)
       : send([{ id: "SECTION_FIXTURE", course_name: "Môn kiểm thử" }]);
   if (url.pathname === "/courses") return send([]);
+  if (url.pathname === "/push/vapid-public-key")
+    return send({ publicKey: "fixture-public-key" });
+  if (url.pathname === "/push/subscriptions") return send({ success: true });
   if (url.pathname === "/students/SV_FIXTURE/timetable")
     return send([
       {
@@ -539,6 +542,51 @@ try {
     assert.equal(received.at(-1).query.get("studentId"), null);
     assert.equal(received.at(-1).query.get("student_id"), null);
   }
+  // Web Push: the device is registered for the session's MSSV, not one from the body.
+  const vapid = await request("/api/student-data/push/vapid-public-key", { headers });
+  assert.equal(vapid.status, 200);
+  assert.equal((await vapid.json()).publicKey, "fixture-public-key");
+  const pushSubscription = {
+    endpoint: "https://push.example.com/fixture",
+    keys: { p256dh: "p", auth: "a" },
+  };
+  assert.equal(
+    (
+      await request(
+        "/api/student-data/push/subscriptions",
+        jsonPost({ studentId: "FORGED", subscription: pushSubscription }, student),
+      )
+    ).status,
+    200,
+  );
+  assert.equal(received.at(-1).path, "/push/subscriptions");
+  assert.deepEqual(received.at(-1).body, {
+    studentId: "SV_FIXTURE",
+    subscription: pushSubscription,
+  });
+  assert.equal(
+    (
+      await request("/api/student-data/push/subscriptions", {
+        method: "DELETE",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({ studentId: "FORGED", endpoint: pushSubscription.endpoint }),
+      })
+    ).status,
+    200,
+  );
+  assert.deepEqual(received.at(-1).body, {
+    studentId: "SV_FIXTURE",
+    endpoint: pushSubscription.endpoint,
+  });
+  assert.equal(
+    (
+      await request(
+        "/api/student-data/push/subscriptions",
+        jsonPost({ subscription: pushSubscription }),
+      )
+    ).status,
+    401,
+  );
   const logout = await request("/api/session", { method: "DELETE", headers });
   assert.equal(logout.status, 200);
   assert.ok(/Max-Age=0/.test(logout.headers.get("set-cookie")));
