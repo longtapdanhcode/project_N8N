@@ -23,6 +23,17 @@ import {
 import { Timetable } from "./components/Timetable";
 import { SyncStatus } from "./components/SyncStatus";
 import { startSync } from "./lib/sync";
+import { disablePush } from "./lib/push";
+
+const TABS: readonly string[] = [
+  "schedule",
+  "grades",
+  "attendance",
+  "registration",
+  "faq",
+  "assignments",
+  "theses",
+];
 
 export function Skeleton() {
   return (
@@ -103,8 +114,21 @@ export function App() {
   const [online, setOnline] = useState(navigator.onLine);
   const [swError, setSwError] = useState(false);
   const [logoutError, setLogoutError] = useState("");
-  const [tab, setTab] = useState(USE_MOCK ? "schedule" : "attendance");
+  // Mở thẳng tab từ #hash (ví dụ thông báo đẩy trỏ tới #assignments).
+  const [tab, setTab] = useState(() => {
+    const fromHash = window.location.hash.slice(1);
+    return TABS.includes(fromHash) ? fromHash : USE_MOCK ? "schedule" : "attendance";
+  });
   useEffect(startSync, []);
+  useEffect(() => {
+    if (!("serviceWorker" in navigator)) return;
+    const onMessage = (event: MessageEvent) => {
+      if (event.data?.type === "open-tab" && TABS.includes(event.data.tab))
+        setTab(event.data.tab);
+    };
+    navigator.serviceWorker.addEventListener("message", onMessage);
+    return () => navigator.serviceWorker.removeEventListener("message", onMessage);
+  }, []);
   useEffect(() => {
     const update = () => setOnline(navigator.onLine);
     const error = () => setSwError(true);
@@ -120,6 +144,8 @@ export function App() {
 
   const handleLogout = async () => {
     try {
+      // Người dùng sau trên cùng thiết bị không được nhận thông báo của tài khoản này.
+      await disablePush().catch(() => undefined);
       await logoutPortal();
       localStorage.removeItem('vku_user');
       sessionStorage.clear();

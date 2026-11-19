@@ -229,6 +229,13 @@ export function mockApiPlugin(base: string): Plugin {
       res.end(JSON.stringify(lessons));
       return;
     }
+    if (path.startsWith(`${prefix}/push/`)) {
+      res.statusCode = 503;
+      res.end(
+        JSON.stringify({ message: "Chế độ minh họa không hỗ trợ thông báo đẩy." }),
+      );
+      return;
+    }
     if (req.method === "GET" && path === `${prefix}/grades/me`) {
       const respond = () =>
         res.end(

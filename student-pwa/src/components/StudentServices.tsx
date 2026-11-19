@@ -20,6 +20,13 @@ import {
 import { db } from "../lib/db";
 import { queueClassAttendance } from "../lib/syncQueue";
 import { scheduleSync } from "../lib/sync";
+import { Bell, BellOff } from "lucide-react";
+import {
+  disablePush,
+  enablePush,
+  getPushState,
+  type PushState,
+} from "../lib/push";
 
 const message = (error: unknown) =>
   error instanceof Error
@@ -349,6 +356,64 @@ function SubmissionCard({ receipt }: { receipt: SubmissionReceipt }) {
   );
 }
 
+const PUSH_TEXT: Record<PushState, string> = {
+  on: "Đã bật thông báo trên thiết bị này khi có nhận xét bài nộp.",
+  off: "Bật thông báo để biết ngay khi AI chấm xong, kể cả khi đã đóng ứng dụng.",
+  denied:
+    "Trình duyệt đang chặn thông báo. Cho phép thông báo trong cài đặt trang rồi tải lại.",
+  "needs-install":
+    "Trên iPhone/iPad, thêm ứng dụng vào Màn hình chính rồi mở từ đó để nhận thông báo.",
+  unsupported:
+    "Trình duyệt này chưa hỗ trợ thông báo đẩy. Kết quả vẫn tự cập nhật khi mở ứng dụng.",
+};
+
+export function PushToggle() {
+  const [state, setState] = useState<PushState>();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    let active = true;
+    getPushState()
+      .then((s) => active && setState(s))
+      .catch(() => active && setState("unsupported"));
+    return () => {
+      active = false;
+    };
+  }, []);
+  if (!state) return null;
+  const canToggle = state === "on" || state === "off";
+  const toggle = async () => {
+    setBusy(true);
+    setError("");
+    try {
+      setState(await (state === "on" ? disablePush() : enablePush()));
+    } catch (e) {
+      setError(message(e));
+      setState(await getPushState().catch(() => state));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="push-toggle">
+      <p className="row-status" role="status">
+        {state === "on" ? <Bell aria-hidden /> : <BellOff aria-hidden />}
+        {PUSH_TEXT[state]}
+      </p>
+      {canToggle && (
+        <button
+          className={state === "on" ? "secondary" : "primary"}
+          disabled={busy || !navigator.onLine}
+          onClick={() => void toggle()}
+        >
+          {busy ? "Đang xử lý…" : state === "on" ? "Tắt thông báo" : "Bật thông báo"}
+        </button>
+      )}
+      <ErrorNotice error={error} />
+    </div>
+  );
+}
+
 export function Assignments({ profile }: { profile: Profile }) {
   const receipts = useLiveQuery(
     () => db.submissions.where("studentId").equals(profile.studentId).toArray(),
@@ -366,6 +431,7 @@ export function Assignments({ profile }: { profile: Profile }) {
         Bài nộp dạng văn bản. Kết quả được cập nhật tự động; lịch sử trên thiết
         bị này lưu mã truy cập riêng cho từng bài.
       </p>
+      <PushToggle />
       <form
         className="service-form"
         onSubmit={async (e) => {
