@@ -111,7 +111,7 @@ export function SubmissionDetailModal({
             <BookOpen className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
             <div>
               <span className="text-[11px] text-slate-400 block">Môn học</span>
-              <span className="font-semibold">{submission.courseName || "Lập trình Web"}</span>
+              <span className="font-semibold">{submission.courseName || "Chưa gắn môn"}</span>
             </div>
           </div>
 

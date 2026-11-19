@@ -102,7 +102,7 @@ export interface FilterOptions {
 
 export interface SubmissionFeedback {
   summary: string;
-  score: number;
+  score?: number;
   strengths: string[];
   weaknesses: string[];
   suggestions: string[];
