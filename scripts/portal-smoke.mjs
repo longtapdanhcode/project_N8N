@@ -131,43 +131,103 @@ const backend = createServer(async (req, res) => {
 });
 await new Promise((resolve) => backend.listen(0, "127.0.0.1", resolve));
 const backendUrl = `http://127.0.0.1:${backend.address().port}`;
-const server = spawn(
-  process.execPath,
-  [
-    "node_modules/next/dist/bin/next",
-    "dev",
-    "--port",
-    "3099",
-    "--hostname",
-    "127.0.0.1",
-  ],
-  {
-    cwd: new URL("front/", root),
-    windowsHide: true,
-    env: {
-      ...process.env,
-      AUTH_SESSION_SECRET: randomBytes(48).toString("hex"),
-      BACKEND_INTERNAL_URL: backendUrl,
-      BACKEND_URL: backendUrl,
-      NEXT_PUBLIC_BACKEND_URL: backendUrl,
-    },
-    stdio: ["ignore", "pipe", "pipe"],
-  },
-);
+// Same key across a restart so session cookies issued earlier stay valid.
+const sessionSecret = randomBytes(48).toString("hex");
+let server;
 let log = "";
-server.stdout.on("data", (chunk) => {
-  log += chunk;
-});
-server.stderr.on("data", (chunk) => {
-  log += chunk;
-});
-const request = (path, options = {}) =>
-  fetch(origin + path, {
-    redirect: "manual",
-    ...options,
-    headers: { Origin: origin, ...options.headers },
-    signal: AbortSignal.timeout(30000),
+let startedAt = 0;
+function startServer() {
+  startedAt = log.length;
+  server = spawn(
+    process.execPath,
+    [
+      "node_modules/next/dist/bin/next",
+      "dev",
+      "--port",
+      "3099",
+      "--hostname",
+      "127.0.0.1",
+    ],
+    {
+      cwd: new URL("front/", root),
+      windowsHide: true,
+      env: {
+        ...process.env,
+        AUTH_SESSION_SECRET: sessionSecret,
+        BACKEND_INTERNAL_URL: backendUrl,
+        BACKEND_URL: backendUrl,
+        NEXT_PUBLIC_BACKEND_URL: backendUrl,
+      },
+      stdio: ["ignore", "pipe", "pipe"],
+    },
+  );
+  server.stdout.on("data", (chunk) => {
+    log += chunk;
   });
+  server.stderr.on("data", (chunk) => {
+    log += chunk;
+  });
+}
+async function waitReady() {
+  for (let i = 0; !log.slice(startedAt).includes("Ready in"); i++) {
+    if (i >= 60 || server.exitCode !== null)
+      throw new Error(
+        `Temporary frontend failed to start (exit ${server.exitCode}); check port 3099\n${log.slice(-4000)}`,
+      );
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+  }
+}
+startServer();
+
+// Next.js 16.4 `next dev` exits with code 1 when it detects an AI agent and has an
+// upgrade advisory to print (see next/dist/lib/upgrade/nudge.js); the next start is
+// let through. That made this test fail on every other run under agents only.
+// Restart once in that exact case; any other exit is still a failure.
+const UPGRADE_NUDGE = "stopped to show the upgrade recommendation";
+let nudgeRestarts = 0;
+// `next dev` can also drop the connection while compiling a route on first hit.
+// Retry only GETs, and only on connection errors: an HTTP response of any status
+// is returned as-is, so status assertions stay strict.
+const CONNECTION_RETRIES = 3;
+const request = async (path, options = {}) => {
+  const method = options.method || "GET";
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await fetch(origin + path, {
+        redirect: "manual",
+        ...options,
+        headers: { Origin: origin, ...options.headers },
+        signal: AbortSignal.timeout(30000),
+      });
+    } catch (error) {
+      const connectionError =
+        error.name !== "TimeoutError" && error.name !== "AbortError";
+      if (connectionError) {
+        await new Promise((resolve) => setTimeout(resolve, 500 * (attempt + 1)));
+        if (
+          server.exitCode !== null &&
+          log.slice(startedAt).includes(UPGRADE_NUDGE) &&
+          nudgeRestarts < 1
+        ) {
+          nudgeRestarts++;
+          console.warn(
+            "next dev stopped for an upgrade advisory; restarting it once. Run `npm audit` in front/.",
+          );
+          startServer();
+          await waitReady();
+          continue;
+        }
+        if (method === "GET" && server.exitCode === null && attempt < CONNECTION_RETRIES)
+          continue;
+      }
+      // Name the request and keep the dev server output so failures are diagnosable.
+      throw new Error(
+        `${method} ${path} failed after ${attempt + 1} attempt(s): ${error.cause?.message || error.message}\n--- next dev log (tail) ---\n${log.slice(-4000)}`,
+        { cause: error },
+      );
+    }
+  }
+};
 const jsonPost = (body, cookie) => ({
   method: "POST",
   headers: {
@@ -186,11 +246,7 @@ async function login(username) {
   return response.headers.get("set-cookie").split(";")[0];
 }
 try {
-  for (let i = 0; !log.includes("Ready in"); i++) {
-    if (i >= 60 || server.exitCode !== null)
-      throw new Error("Temporary frontend failed to start; check port 3099");
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-  }
+  await waitReady();
   assert.equal((await request("/")).status, 200);
   assert.equal((await request("/teacher")).status, 307);
   assert.equal((await request("/student/index.html")).status, 307);
