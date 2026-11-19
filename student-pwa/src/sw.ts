@@ -55,6 +55,57 @@ registerRoute(
   }),
 );
 
+// Web Push: thông báo khi AI chấm xong bài. Chỉ mở đường dẫn trong phạm vi PWA.
+const scope = new URL(import.meta.env.BASE_URL, self.location.origin);
+const safeUrl = (value: unknown) => {
+  try {
+    const url = new URL(String(value), scope);
+    if (url.origin === scope.origin && url.pathname.startsWith(scope.pathname))
+      return url.href;
+  } catch {
+    // Bỏ qua URL hỏng, mở trang chính.
+  }
+  return scope.href;
+};
+self.addEventListener("push", (event) => {
+  let data: { title?: string; body?: string; url?: string; tag?: string } = {};
+  try {
+    data = event.data?.json() ?? {};
+  } catch {
+    data = { body: event.data?.text() };
+  }
+  event.waitUntil(
+    self.registration.showNotification(data.title || "VKU · Cổng sinh viên", {
+      body: data.body,
+      tag: data.tag,
+      icon: `${import.meta.env.BASE_URL}icon.svg`,
+      data: { url: safeUrl(data.url) },
+    }),
+  );
+});
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const url: string = event.notification.data?.url || scope.href;
+  event.waitUntil(
+    (async () => {
+      const windows = await self.clients.matchAll({
+        type: "window",
+        includeUncontrolled: true,
+      });
+      const open = windows.find((client) =>
+        new URL(client.url).pathname.startsWith(scope.pathname),
+      );
+      if (open) {
+        // Ứng dụng đang mở: chuyển tab, không tải lại trang.
+        open.postMessage({ type: "open-tab", tab: new URL(url).hash.slice(1) });
+        await open.focus();
+      } else {
+        await self.clients.openWindow(url);
+      }
+    })(),
+  );
+});
+
 interface BackgroundSyncEvent extends ExtendableEvent {
   tag: string;
 }

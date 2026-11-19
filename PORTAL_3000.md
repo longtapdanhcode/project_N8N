@@ -43,6 +43,7 @@ Service Worker chỉ kiểm soát /student/. Bản mới tự kích hoạt; tab 
 - API bài nộp, FAQ và điểm yêu cầu phiên sinh viên; danh sách bài nộp yêu cầu phiên giảng viên.
 - Điểm lấy từ backend, không trả điểm mẫu khi dịch vụ lỗi. Không có điểm thật sẽ trả danh sách rỗng.
 - Lịch học cá nhân: /api/timetable (và /api/student-data/timetable) chuyển thành /students/:MSSV-trong-phiên/timetable tại backend; chỉ chuyển tiếp from, to, semester. Backend dựng lịch từ enrollments + class_sections (học kỳ mới nhất, mặc định tuần hiện tại theo giờ Việt Nam) và đánh dấu đã điểm danh theo bảng attendance. CSDL chưa có phòng học/giảng viên nên hai trường này để trống. Giờ tiết đặt qua TIMETABLE_PERIODS (xem backend/.env.example).
+- Thông báo đẩy khi AI chấm xong: sinh viên bật ở tab Bài tập. Proxy /api/student-data/push/* gắn MSSV từ phiên; backend gửi khi n8n gọi /api/internal/notifications/assignment-analyzed lần đầu cho bài đó. Cần VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT trong backend/.env (sinh bằng `npx web-push generate-vapid-keys`); thiếu thì tính năng tắt và PWA vẫn tự hỏi kết quả. Đăng xuất sẽ hủy đăng ký trên thiết bị. iPhone/iPad chỉ nhận khi mở PWA từ Màn hình chính.
 - Mốc đồ án sinh viên chỉ được cập nhật khi backend xác nhận đồ án thuộc MSSV trong phiên.
 - Lỗi backend giữ mã trạng thái tương ứng; không kết nối được trả 502/503.
 
