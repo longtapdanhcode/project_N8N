@@ -19,10 +19,16 @@ export function ThesisDetailModal({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  useEffect(() => {
+  // Reset local state when a different thesis is opened (adjust state during render).
+  const [prevThesis, setPrevThesis] = useState(thesis);
+  if (thesis !== prevThesis) {
+    setPrevThesis(thesis);
     setCurrent(thesis);
     setError("");
     setNotice("");
+  }
+  // The effect only drives the native <dialog>, an external DOM API.
+  useEffect(() => {
     if (thesis) dialog.current?.showModal();
     else dialog.current?.close();
   }, [thesis]);

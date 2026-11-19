@@ -130,7 +130,7 @@ export async function POST(req: NextRequest) {
     });
 
     return response;
-  } catch (err: unknown) {
+  } catch {
     return NextResponse.json(
       {
         message:

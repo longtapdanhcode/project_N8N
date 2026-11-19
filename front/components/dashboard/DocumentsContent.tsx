@@ -31,8 +31,23 @@ export function DocumentsContent() {
       setLoading(false);
     }
   };
+  // Initial fetch: `loading` already starts true, so state is only set in callbacks.
   useEffect(() => {
-    void load(0);
+    let cancelled = false;
+    getDocuments(0)
+      .then((result) => {
+        if (!cancelled) setDocuments(result.data);
+      })
+      .catch((e) => {
+        if (!cancelled)
+          setError(e instanceof Error ? e.message : "Không tải được tài liệu.");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
   return (
     <div className="service-page">

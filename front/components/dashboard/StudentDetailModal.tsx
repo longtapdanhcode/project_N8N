@@ -5,7 +5,6 @@ import { Student } from '@/types';
 import { Badge, Button } from '@/components/ui';
 import {
   X,
-  User,
   Mail,
   Phone,
   GraduationCap,

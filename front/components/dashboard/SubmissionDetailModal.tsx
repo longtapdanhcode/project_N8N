@@ -27,7 +27,6 @@ export function SubmissionDetailModal({
   if (!submission) return null;
 
   const isCompleted = submission.status === "COMPLETED";
-  const isFailed = submission.status === "FAILED" || submission.status === "QUEUE_FAILED";
   const isPending = submission.status === "PENDING" || submission.status === "QUEUED";
 
   const formatDate = (isoStr?: string) => {

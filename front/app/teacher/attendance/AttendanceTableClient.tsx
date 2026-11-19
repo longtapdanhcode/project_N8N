@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { ColumnDef } from '@tanstack/react-table';
 import { AttendanceRecord, Student } from '@/types';
 import { DataTable, DataTableToolbar } from '@/components/table';
@@ -30,24 +30,27 @@ export const AttendanceTableClient: React.FC<AttendanceTableClientProps> = ({
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  const showToast = (msg: string) => {
+  const showToast = useCallback((msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3500);
-  };
+  }, []);
 
   const handleExport = () => {
     exportAttendanceToCSV(initialData);
     showToast(`Đã xuất ${initialData.length} bản ghi điểm danh ra file CSV!`);
   };
 
-  const handleSelectRecord = async (record: AttendanceRecord) => {
-    const student = await getStudentById(record.studentId);
-    if (student) {
-      setSelectedStudent(student);
-    } else {
-      showToast(`Không tìm thấy hồ sơ chi tiết cho MSSV ${record.studentId}`);
-    }
-  };
+  const handleSelectRecord = useCallback(
+    async (record: AttendanceRecord) => {
+      const student = await getStudentById(record.studentId);
+      if (student) {
+        setSelectedStudent(student);
+      } else {
+        showToast(`Không tìm thấy hồ sơ chi tiết cho MSSV ${record.studentId}`);
+      }
+    },
+    [showToast],
+  );
 
   const handleSendWarning = (student: Student) => {
     showToast(`Đã gửi cảnh báo n8n webhook cho ${student.fullName} (${student.studentId})!`);
@@ -188,7 +191,7 @@ export const AttendanceTableClient: React.FC<AttendanceTableClientProps> = ({
         ),
       },
     ],
-    []
+    [handleSelectRecord]
   );
 
   return (

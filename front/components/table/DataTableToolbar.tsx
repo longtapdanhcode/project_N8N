@@ -35,9 +35,12 @@ export const DataTableToolbar: React.FC<DataTableToolbarProps> = ({
   const [searchValue, setSearchValue] = useState(currentSearch);
 
   // Sync internal input value with URL searchParam if URL changes from outside
-  useEffect(() => {
+  // (adjust state during render instead of an effect).
+  const [prevSearch, setPrevSearch] = useState(currentSearch);
+  if (currentSearch !== prevSearch) {
+    setPrevSearch(currentSearch);
     setSearchValue(currentSearch);
-  }, [currentSearch]);
+  }
 
   // Debounce search update (300ms)
   useEffect(() => {
@@ -91,7 +94,6 @@ export const DataTableToolbar: React.FC<DataTableToolbarProps> = ({
 
   const handleClearFilters = () => {
     setSearchValue('');
-    const params = new URLSearchParams();
     startTransition(() => {
       router.push(pathname);
     });

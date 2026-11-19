@@ -28,9 +28,12 @@ export const ProjectsTableClient: React.FC<ProjectsTableClientProps> = ({
   const [theses, setTheses] = useState<Thesis[]>(initialData);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  React.useEffect(() => {
+  // Reset local rows when the server sends a new page (adjust state during render).
+  const [prevInitialData, setPrevInitialData] = useState(initialData);
+  if (initialData !== prevInitialData) {
+    setPrevInitialData(initialData);
     setTheses(initialData);
-  }, [initialData]);
+  }
 
   const showToast = (msg: string) => {
     setToastMessage(msg);

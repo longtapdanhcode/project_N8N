@@ -1,13 +1,8 @@
 'use client';
 
-import React, { useState, useEffect, useTransition } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import {
-  Student,
-  DashboardKPIs,
-  MilestoneStatus,
-  Thesis,
-} from '@/types';
+import { Student, DashboardKPIs } from '@/types';
 import {
   getTopAttendanceViolators,
   askAcademicAI,
@@ -26,7 +21,6 @@ import {
   Sparkles,
   Send,
   CheckCircle2,
-  Clock,
   ShieldCheck,
   Flame,
   ArrowRight,
@@ -88,7 +82,7 @@ export const OverviewContent: React.FC<OverviewContentProps> = ({ kpis }) => {
         `Phát hiện ${violationsCount} sinh viên cần cảnh báo; đã chuyển ${dispatched} bản ghi sang n8n.`,
         'success',
       );
-    } catch (error: any) {
+    } catch (error: unknown) {
       setScanError(error instanceof Error ? error.message : 'Không quét được cảnh báo.');
       console.error('Lỗi khi quét cảnh báo học vụ:', error);
       showToast(

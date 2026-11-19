@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
+import Link from "next/link";
 import "./echoid-login.css";
 
 export default function LoginPage() {
@@ -106,9 +107,9 @@ export default function LoginPage() {
 
       {/* 5. NAVBAR */}
       <header className="hero__nav">
-        <a href="/" className="hero__logo" aria-label="VKU AI Portal">
+        <Link href="/" className="hero__logo" aria-label="VKU AI Portal">
           VKU AI
-        </a>
+        </Link>
 
         <div className="hero__nav-cluster">
           <nav className="hero__nav-links" aria-label="Desktop Navigation">
