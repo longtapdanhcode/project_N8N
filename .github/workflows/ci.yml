@@ -1,0 +1,124 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: "26"
+
+jobs:
+  backend:
+    name: Backend (lint, types, tests, build, audit)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      mongo:
+        image: mongo:6.0
+        ports: ["27017:27017"]
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.runCommand({ ping: 1 })'"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      # e2e boots the whole AppModule. Supabase and Gemini clients only read
+      # these at startup; no test calls them, so placeholders are enough.
+      MONGO_URI: mongodb://127.0.0.1:27017/vku-ai-ci
+      REDIS_HOST: 127.0.0.1
+      REDIS_PORT: "6379"
+      SUPABASE_URL: https://ci.invalid
+      SUPABASE_SERVICE_ROLE_KEY: ci-placeholder
+      GEMINI_API_KEY: ci-placeholder
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npx tsc --noEmit -p tsconfig.json
+      - run: npm test
+      - run: npm run test:integration
+      - run: npm run test:e2e
+      - run: npm run build
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high
+
+  front:
+    name: Front (types, lint, audit)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: front
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: front/package-lock.json
+      - run: npm ci
+      - run: npx tsc --noEmit
+      - run: npm run lint
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high
+
+  student-pwa:
+    name: Student PWA (tests, build)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: student-pwa
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: student-pwa/package-lock.json
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high
+
+  portal:
+    name: Portal (session tests, build, smoke)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: |
+            front/package-lock.json
+            student-pwa/package-lock.json
+      - run: npm ci --prefix front
+      - run: npm ci --prefix student-pwa
+      - run: npm run test:portal
+      # Builds the PWA, copies it to front/public/student and runs next build.
+      - run: npm run build
+      # API contract test against an in-memory backend fixture; no database.
+      - run: node scripts/portal-smoke.mjs
