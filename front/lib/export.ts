@@ -170,7 +170,7 @@ export function exportSubmissionsToCSV(submissions: Submission[]) {
     escapeCSV(s._id),
     escapeCSV(s.studentId),
     escapeCSV(s.studentName || 'Chưa rõ'),
-    escapeCSV(s.courseName || 'Lập trình Web'),
+    escapeCSV(s.courseName || 'Chưa gắn môn'),
     escapeCSV(s.assignmentTitle),
     escapeCSV(
       s.status === 'COMPLETED'

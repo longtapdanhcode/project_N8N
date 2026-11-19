@@ -85,6 +85,29 @@ const backend = createServer(async (req, res) => {
     return send({ success: true, violations: [] });
   if (url.pathname === "/ai/ask" && req.method === "POST")
     return send({ answer: "Phản hồi kiểm thử" });
+  if (url.pathname === "/submissions" && req.method === "GET")
+    return send({
+      data: [
+        {
+          _id: "submission-fixture",
+          submissionId: "submission-fixture",
+          studentId: "SV_FIXTURE",
+          studentName: null,
+          assignmentTitle: "Fixture",
+          content: "",
+          criteria: [],
+          status: "QUEUED",
+          model: null,
+          feedback: null,
+          createdAt: "2026-11-18T01:00:00.000Z",
+          updatedAt: "2026-11-18T01:00:00.000Z",
+        },
+      ],
+      total: 1,
+      page: 2,
+      pageSize: 20,
+      totalPages: 1,
+    });
   if (url.pathname === "/submissions" && req.method === "POST")
     return send({
       submissionId: "submission-fixture",
@@ -274,6 +297,18 @@ try {
     200,
   );
   assert.equal(received.at(-1).query.get("page"), "2");
+  const submissions = await request(
+    "/api/submissions?page=2&search=Fixture&sortBy=student&sortOrder=asc",
+    { headers: teacherHeaders },
+  );
+  assert.equal(submissions.status, 200);
+  const submissionList = await submissions.json();
+  assert.equal(submissionList.data[0].studentName, "Chưa có họ tên");
+  assert.equal(received.at(-1).path, "/submissions");
+  assert.equal(received.at(-1).query.get("page"), "2");
+  assert.equal(received.at(-1).query.get("search"), "Fixture");
+  // Id cột "student" được đổi thành trường backend studentId.
+  assert.equal(received.at(-1).query.get("sortBy"), "studentId");
   for (const path of [
     "/api/teacher-data/test-hybrid-search",
     "/api/teacher-data/auth/login",

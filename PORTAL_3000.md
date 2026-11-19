@@ -22,7 +22,7 @@ Backend cần MongoDB, Redis và các cấu hình dịch vụ thật. Docker Com
 
 Xem front/.env.example. Các API trung gian dùng BACKEND_INTERNAL_URL, rồi BACKEND_URL, NEXT_PUBLIC_BACKEND_URL; mặc định http://127.0.0.1:3001. Địa chỉ nội bộ dùng ở server, không đưa khóa nội bộ vào trình duyệt.
 
-Danh sách bài nộp giảng viên hiện đọc MongoDB trực tiếp phía server qua MONGODB_URI; chưa có API backend tương đương cho danh sách này. Không kết nối được database sẽ báo lỗi, không giả thành danh sách rỗng.
+Danh sách bài nộp giảng viên đọc qua backend GET /submissions (lọc status, tìm theo tiêu đề/MSSV/họ tên, phân trang, sắp xếp theo các trường cho phép). Frontend không còn kết nối MongoDB. Backend lỗi sẽ báo lỗi, không giả thành danh sách rỗng. Bài nộp chưa lưu môn học nên cột Môn học hiển thị "Chưa gắn môn".
 
 Script chạy gốc tạo khóa phiên ngẫu nhiên nếu chưa có AUTH_SESSION_SECRET. Khởi động lại có thể yêu cầu đăng nhập lại. Triển khai lâu dài nên cấu hình khóa ngẫu nhiên riêng ít nhất 32 ký tự. Không dùng khóa mẫu công khai. Vai trò lấy từ backend; không tự chọn trên form.
 

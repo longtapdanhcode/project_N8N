@@ -1,142 +1,99 @@
-import { MongoClient } from "mongodb";
 import type { PaginatedResult, Submission } from "@/types";
+import { BACKEND_URL } from "./backend";
 
-const MONGODB_URI =
-  process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/vku-ai-support";
+const SORT_COLUMNS: Record<string, string> = {
+  student: "studentId",
+  studentId: "studentId",
+  assignmentTitle: "assignmentTitle",
+  createdAt: "createdAt",
+  updatedAt: "updatedAt",
+  status: "status",
+  score: "score",
+};
 
-let client: MongoClient | null = null;
-
-async function getDb() {
-  if (!client) {
-    client = new MongoClient(MONGODB_URI, { serverSelectionTimeoutMS: 5000 });
-    await client.connect();
-  }
-  return client.db();
+interface BackendSubmission {
+  _id: string;
+  submissionId: string;
+  studentId: string;
+  studentName: string | null;
+  assignmentTitle: string;
+  content: string;
+  criteria: string[];
+  status: Submission["status"];
+  model: string | null;
+  feedback: {
+    summary: string;
+    score: number | null;
+    strengths: string[];
+    weaknesses: string[];
+    suggestions: string[];
+  } | null;
+  createdAt: string | null;
+  updatedAt: string | null;
 }
 
-function detectCourseName(title: string): string {
-  const lower = title.toLowerCase();
-  if (lower.includes("web") || lower.includes("rest api") || lower.includes("crud")) {
-    return "Lập trình Web";
-  }
-  if (lower.includes("socket") || lower.includes("mạng") || lower.includes("network")) {
-    return "Mạng máy tính";
-  }
-  if (
-    lower.includes("cấu trúc") ||
-    lower.includes("dijkstra") ||
-    lower.includes("knapsack") ||
-    lower.includes("cái túi") ||
-    lower.includes("thuật toán")
-  ) {
-    return "Cấu trúc dữ liệu & Giải thuật";
-  }
-  if (lower.includes("dữ liệu") || lower.includes("database") || lower.includes("sql")) {
-    return "Cơ sở dữ liệu";
-  }
-  return "Chưa xác định môn";
-}
+/**
+ * Danh sách bài nộp cho trang giảng viên, đọc qua backend GET /submissions.
+ * Chỉ gọi phía server (Server Component hoặc route đã kiểm tra phiên giảng viên).
+ */
+export async function fetchSubmissions(
+  options: {
+    search?: string;
+    status?: string;
+    page?: number;
+    pageSize?: number;
+    sortBy?: string;
+    sortOrder?: "asc" | "desc";
+  } = {},
+): Promise<PaginatedResult<Submission>> {
+  const params = new URLSearchParams();
+  const { sortBy, ...rest } = options;
+  for (const [key, value] of Object.entries(rest))
+    if (value !== undefined && value !== "") params.set(key, String(value));
+  // Id cột trên bảng → trường backend cho phép sắp xếp; cột khác dùng mặc định createdAt.
+  const sortField = sortBy && SORT_COLUMNS[sortBy];
+  if (sortField) params.set("sortBy", sortField);
 
-export async function fetchSubmissions(options: {
-  search?: string;
-  status?: string;
-  page?: number;
-  pageSize?: number;
-  sortBy?: string;
-  sortOrder?: "asc" | "desc";
-} = {}): Promise<PaginatedResult<Submission>> {
-  const page = Math.max(1, Number(options.page) || 1);
-  const pageSize = Math.min(100, Math.max(1, Number(options.pageSize) || 20));
-  const search = (options.search || "").trim();
-  const statusFilter = options.status && options.status !== "ALL" ? options.status : "";
-
-
+  let response: Response;
   try {
-    const db = await getDb();
-    const submissionsCol = db.collection("submissions");
-    const studentsCol = db.collection("students");
-
-    // Pre-cache students dictionary for name lookup
-    const students = await studentsCol.find().toArray();
-    const studentMap = new Map<string, string>();
-    for (const s of students) {
-      const id = String(s._id || s.studentId);
-      const name = s.full_name || s.fullName || s.name;
-      if (name) studentMap.set(id, name);
-    }
-    const query: Record<string, any> = {};
-
-    if (statusFilter) {
-      query.status = statusFilter;
-    }
-
-    if (search) {
-      const regex = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
-      // Find student IDs matching search name
-      const matchingStudentIds: string[] = [];
-      for (const [sId, sName] of studentMap.entries()) {
-        if (sName.toLowerCase().includes(search.toLowerCase())) {
-          matchingStudentIds.push(sId);
-        }
-      }
-
-      query.$or = [
-        { assignmentTitle: regex },
-        { studentId: regex },
-        ...(matchingStudentIds.length > 0 ? [{ studentId: { $in: matchingStudentIds } }] : []),
-      ];
-    }
-
-    const sortDirection = options.sortOrder === "asc" ? 1 : -1;
-    const sortField = options.sortBy || "createdAt";
-    const sortOptions: Record<string, any> = { [sortField]: sortDirection };
-
-    const total = await submissionsCol.countDocuments(query);
-    const skip = (page - 1) * pageSize;
-
-    const rawDocs = await submissionsCol
-      .find(query)
-      .sort(sortOptions)
-      .skip(skip)
-      .limit(pageSize)
-      .toArray();
-
-    const data: Submission[] = rawDocs.map((doc: any) => {
-      const sId = String(doc.studentId || "");
-      const title = doc.assignmentTitle || "Bài nộp sinh viên";
-      return {
-        _id: String(doc._id),
-        submissionId: String(doc._id),
-        studentId: sId,
-        studentName: studentMap.get(sId) || (sId ? `Sinh viên ${sId}` : "Chưa rõ"),
-        courseName: detectCourseName(title),
-        assignmentTitle: title,
-        content: doc.content || "",
-        criteria: Array.isArray(doc.criteria) ? doc.criteria : [],
-        status: doc.status || "PENDING",
-        model: doc.model || undefined,
-        feedback: doc.feedback
-          ? {
-              summary: doc.feedback.summary || "",
-              score: typeof doc.feedback.score === "number" ? doc.feedback.score : 0,
-              strengths: Array.isArray(doc.feedback.strengths) ? doc.feedback.strengths : [],
-              weaknesses: Array.isArray(doc.feedback.weaknesses) ? doc.feedback.weaknesses : [],
-              suggestions: Array.isArray(doc.feedback.suggestions) ? doc.feedback.suggestions : [],
-            }
-          : undefined,
-        createdAt: doc.createdAt instanceof Date ? doc.createdAt.toISOString() : String(doc.createdAt || new Date().toISOString()),
-        updatedAt: doc.updatedAt instanceof Date ? doc.updatedAt.toISOString() : String(doc.updatedAt || new Date().toISOString()),
-      };
+    response = await fetch(`${BACKEND_URL}/submissions?${params}`, {
+      cache: "no-store",
+      signal: AbortSignal.timeout(15_000),
     });
-
-    return {
-      data,
-      total,
-      page,
-      pageSize,
-      totalPages: Math.ceil(total / pageSize),
-    };
-  } catch (error) {
-    throw new Error("Không tải được danh sách bài nộp. Kiểm tra kết nối database.");
+  } catch {
+    throw new Error("Không kết nối được backend để tải danh sách bài nộp.");
   }
+  const body = await response.json().catch(() => null);
+  if (!response.ok || !Array.isArray(body?.data)) {
+    const message = Array.isArray(body?.message)
+      ? body.message.join(", ")
+      : body?.message;
+    throw new Error(message || "Không tải được danh sách bài nộp.");
+  }
+
+  return {
+    ...body,
+    data: (body.data as BackendSubmission[]).map((doc) => ({
+      _id: doc._id,
+      submissionId: doc.submissionId,
+      studentId: doc.studentId,
+      studentName: doc.studentName ?? "Chưa có họ tên",
+      assignmentTitle: doc.assignmentTitle,
+      content: doc.content,
+      criteria: doc.criteria,
+      status: doc.status,
+      model: doc.model ?? undefined,
+      feedback: doc.feedback
+        ? {
+            summary: doc.feedback.summary,
+            score: doc.feedback.score ?? undefined,
+            strengths: doc.feedback.strengths,
+            weaknesses: doc.feedback.weaknesses,
+            suggestions: doc.feedback.suggestions,
+          }
+        : undefined,
+      createdAt: doc.createdAt ?? "",
+      updatedAt: doc.updatedAt ?? "",
+    })),
+  };
 }

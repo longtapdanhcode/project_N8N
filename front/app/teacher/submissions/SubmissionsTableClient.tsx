@@ -77,9 +77,11 @@ export const SubmissionsTableClient: React.FC<SubmissionsTableClientProps> = ({
         id: "courseName",
         accessorKey: "courseName",
         header: "Môn học",
+        // Bài nộp chưa lưu môn học: không đoán, không cho sắp xếp theo cột này.
+        enableSorting: false,
         cell: ({ row }) => (
           <span className="font-medium text-slate-700">
-            {row.original.courseName || "Lập trình Web"}
+            {row.original.courseName || "Chưa gắn môn"}
           </span>
         ),
       },

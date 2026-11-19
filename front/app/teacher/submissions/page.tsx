@@ -46,9 +46,11 @@ async function SubmissionsDataContent({
   });
 
   const completedCount = result.data.filter((s) => s.status === "COMPLETED").length;
-  const evaluatedScores = result.data
-    .filter((s) => s.status === "COMPLETED" && s.feedback?.score !== undefined)
-    .map((s) => s.feedback!.score);
+  const evaluatedScores = result.data.flatMap((s) =>
+    s.status === "COMPLETED" && typeof s.feedback?.score === "number"
+      ? [s.feedback.score]
+      : [],
+  );
   const avgScore =
     evaluatedScores.length > 0
       ? (evaluatedScores.reduce((a, b) => a + b, 0) / evaluatedScores.length).toFixed(1)
