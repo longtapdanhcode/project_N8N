@@ -1,7 +1,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
-import { signSession, readSession, destination } from "../front/lib/session.ts";
+import {
+  signSession,
+  readSession,
+  destination,
+  sessionSecretProblem,
+} from "../front/lib/session.ts";
 const secret = randomBytes(48).toString("hex");
 test("missing configuration never falls back to a public session key", () => {
   const previous = process.env.AUTH_SESSION_SECRET;
@@ -63,4 +68,19 @@ test("rejects tampered role, wrong key, expired or malformed cookie", () => {
     readSession(signSession({ ...session, role: "admin" }, secret), secret),
     null,
   );
+});
+test("rejects short or guessable session keys", () => {
+  assert.match(sessionSecretProblem(undefined), /Chưa đặt/);
+  assert.match(sessionSecretProblem("x".repeat(31)), /32/);
+  assert.match(sessionSecretProblem("a".repeat(64)), /dễ đoán/);
+  assert.match(sessionSecretProblem("12".repeat(32)), /dễ đoán/);
+  assert.equal(sessionSecretProblem(secret), null);
+  const session = {
+    username: "t",
+    name: "t",
+    role: "student",
+    expires: Date.now() + 10000,
+  };
+  assert.throws(() => signSession(session, "a".repeat(64)), /dễ đoán/);
+  assert.equal(readSession(signSession(session, secret), "a".repeat(64)), null);
 });

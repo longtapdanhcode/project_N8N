@@ -1,16 +1,44 @@
 import { spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { cp, mkdir, access } from "node:fs/promises";
+import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 const root = fileURLToPath(new URL("../", import.meta.url));
 const mode = process.argv[2] || "dev";
 if (!["dev", "build", "start"].includes(mode))
   throw new Error("Chọn dev, build hoặc start.");
+
+// Đọc front/.env* như Next sẽ đọc, để khóa đặt trong tệp không bị khóa tạm ghi đè.
+const { loadEnvConfig } = createRequire(
+  path.join(root, "front/package.json"),
+)("@next/env");
+loadEnvConfig(path.join(root, "front"), mode === "dev", {
+  info: () => {},
+  error: console.error,
+});
+// Kiểm tra đầy đủ (độ dài, độ ngẫu nhiên) nằm ở front/lib/session.ts;
+// production còn bị front/instrumentation.ts chặn khi khởi động.
+const secret = process.env.AUTH_SESSION_SECRET;
+const problem = !secret
+  ? "Chưa đặt AUTH_SESSION_SECRET."
+  : secret.length < 32
+    ? "AUTH_SESSION_SECRET phải có ít nhất 32 ký tự."
+    : null;
+if (problem && mode === "start") {
+  console.error(
+    `${problem}\nProduction cần khóa phiên cố định, ví dụ: openssl rand -hex 48\nĐặt AUTH_SESSION_SECRET trong front/.env.production.local hoặc biến môi trường rồi chạy lại.`,
+  );
+  process.exit(1);
+}
+if (problem && mode === "dev")
+  console.warn(
+    `${problem} Dùng khóa tạm cho lần chạy dev này; khởi động lại sẽ phải đăng nhập lại.`,
+  );
 const env = {
   ...process.env,
-  AUTH_SESSION_SECRET:
-    process.env.AUTH_SESSION_SECRET || randomBytes(48).toString("hex"),
+  // build không ký phiên; dev dùng khóa tạm khi chưa cấu hình.
+  AUTH_SESSION_SECRET: problem ? randomBytes(48).toString("hex") : secret,
 };
 function run(file, args, cwd, extra = {}) {
   return new Promise((resolve, reject) => {

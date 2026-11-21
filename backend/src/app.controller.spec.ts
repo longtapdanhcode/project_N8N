@@ -1,6 +1,9 @@
-import { BadRequestException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { AppController } from './app.controller';
+import { AppController, isQuotaError } from './app.controller';
 import { AppService } from './app.service';
 import { WebhookService } from './modules/webhook/webhook.service';
 import { AiService } from './modules/ai/ai.service';
@@ -75,6 +78,19 @@ describe('AppController', () => {
       const result = await appController.askAi('Học phí?', { question: 'Học phí?' });
       expect(result.studentId).toBeUndefined();
       expect(result.role).toBeUndefined();
+    });
+
+    it('reports an exhausted Gemini quota as 503 instead of 500', async () => {
+      mockAskAssistant.mockRejectedValueOnce(
+        Object.assign(new Error('RESOURCE_EXHAUSTED'), { status: 429 }),
+      );
+      await expect(appController.askAi('Học phí?')).rejects.toBeInstanceOf(
+        ServiceUnavailableException,
+      );
+      mockAskAssistant.mockRejectedValueOnce(new Error('boom'));
+      await expect(appController.askAi('Học phí?')).rejects.toThrow('boom');
+      expect(isQuotaError({ message: 'got status 429 Too Many Requests' })).toBe(true);
+      expect(isQuotaError({ message: 'id 14290' })).toBe(false);
     });
 
     it('rejects an unknown role', async () => {

@@ -604,6 +604,54 @@ try {
     ).status,
     401,
   );
+  // Giới hạn tần suất: đăng nhập sai bị khóa tạm mà không gọi backend nữa.
+  for (let i = 0; i < 5; i++)
+    assert.equal(
+      (
+        await request(
+          "/api/session",
+          jsonPost({ username: "fixture-lockout", password: "sai" }),
+        )
+      ).status,
+      401,
+    );
+  const loginCalls = received.filter((r) => r.path === "/auth/login").length;
+  const locked = await request(
+    "/api/session",
+    jsonPost({ username: "FIXTURE-LOCKOUT", password: "sai" }),
+  );
+  assert.equal(locked.status, 429);
+  assert.ok(Number(locked.headers.get("retry-after")) > 0);
+  assert.equal(
+    received.filter((r) => r.path === "/auth/login").length,
+    loginCalls,
+  );
+  // Tài khoản khác không bị ảnh hưởng.
+  await login("fixture-teacher");
+  // Hỏi AI quá nhanh: tối đa 6 câu mỗi phút cho một người.
+  let asked = 0;
+  let limited;
+  while (asked < 10) {
+    limited = await request(
+      "/api/ai/ask",
+      jsonPost({ question: "Hỏi nhanh" }, teacher),
+    );
+    if (limited.status === 429) break;
+    assert.equal(limited.status, 200);
+    asked++;
+  }
+  assert.equal(limited.status, 429);
+  assert.ok(asked < 6, `limit reached after ${asked} more questions`);
+  assert.match((await limited.json()).message, /thử lại sau/);
+  assert.equal(
+    (
+      await request(
+        "/api/student-data/faq/ask",
+        jsonPost({ question: "Sinh viên vẫn hỏi được" }, student),
+      )
+    ).status,
+    200,
+  );
   const logout = await request("/api/session", { method: "DELETE", headers });
   assert.equal(logout.status, 200);
   assert.ok(/Max-Age=0/.test(logout.headers.get("set-cookie")));
@@ -622,7 +670,7 @@ try {
     503,
   );
   console.log(
-    "PASS: real API routing, backend-only login, role guards, ownership, empty grades, upstream failure, token/ACK forwarding and logout. Fixture only; no live database or workflow.",
+    "PASS: real API routing, backend-only login, role guards, ownership, empty grades, upstream failure, token/ACK forwarding, rate limits and logout. Fixture only; no live database or workflow.",
   );
 } finally {
   if (backend.listening) await new Promise((resolve) => backend.close(resolve));

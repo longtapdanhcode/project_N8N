@@ -211,6 +211,9 @@ export function ingestDocument(input: {title: string; content: string; category:
   return serviceRequest<{success:boolean; chunks_created:number}>('/documents/ingest-text',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(input)});
 }
 
+/** Cổng từ chối vì gửi quá nhanh (429); thông báo đã viết sẵn cho người dùng. */
+export class RateLimitError extends Error {}
+
 /**
  * Call backend AI RAG assistant (/api/ai/ask) with n8n workflow integration
  */
@@ -227,6 +230,10 @@ export async function askAcademicAI(question: string, conversationId?: string) {
       body: JSON.stringify({ question, ...(conversationId ? { conversationId } : {}) }),
     });
 
+    if (response.status === 429) {
+      const data = await response.json().catch(() => ({}));
+      throw new RateLimitError(data.message || 'Bạn hỏi hơi nhanh. Vui lòng thử lại sau.');
+    }
     if (response.ok) {
       const data = await response.json();
       return {
@@ -252,6 +259,7 @@ export async function askAcademicAI(question: string, conversationId?: string) {
       };
     }
   } catch (error) {
+    if (error instanceof RateLimitError) throw error;
     console.error('Failed to invoke AI RAG assistant:', error);
   }
 

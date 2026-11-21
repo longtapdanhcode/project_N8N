@@ -6,6 +6,7 @@ import { Student, DashboardKPIs } from '@/types';
 import {
   getTopAttendanceViolators,
   askAcademicAI,
+  RateLimitError,
   scanAcademicWarnings,
   type AcademicWarningScanResponse,
 } from '@/lib/api';
@@ -112,8 +113,11 @@ export const OverviewContent: React.FC<OverviewContentProps> = ({ kpis }) => {
           res.conversationId === conversationId ? [...prev, question] : [question],
         );
       }
-    } catch {
-      showToast('Có lỗi xảy ra khi truy vấn trợ lý AI!', 'error');
+    } catch (error) {
+      showToast(
+        error instanceof RateLimitError ? error.message : 'Có lỗi xảy ra khi truy vấn trợ lý AI!',
+        'error',
+      );
     } finally {
       setAiLoading(false);
     }

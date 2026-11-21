@@ -6,6 +6,7 @@ import {
   Logger,
   Post,
   Query,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AppService } from './app.service';
@@ -16,6 +17,18 @@ import {
   FaqMemoryService,
   searchQueryFor,
 } from './modules/faq-memory/faq-memory.service';
+
+/** Gemini báo hết hạn mức (429 / RESOURCE_EXHAUSTED) sau khi đã thử lại. */
+export function isQuotaError(error: unknown) {
+  const e = error as { status?: unknown; code?: unknown; message?: unknown };
+  const message = String(e?.message ?? '');
+  return (
+    e?.status === 429 ||
+    e?.code === 429 ||
+    message.includes('RESOURCE_EXHAUSTED') ||
+    /\b429\b/.test(message)
+  );
+}
 
 @Controller()
 export class AppController {
@@ -161,10 +174,19 @@ export class AppController {
 
     // 2. Fallback sang dịch vụ RAG nội bộ nếu n8n gián đoạn
     const history = session?.history ?? [];
-    const fallbackRes = await this.aiService.askAssistant(rawQuestion, {
-      history,
-      searchQuery: searchQueryFor(rawQuestion, history),
-    });
+    let fallbackRes: Awaited<ReturnType<AiService['askAssistant']>>;
+    try {
+      fallbackRes = await this.aiService.askAssistant(rawQuestion, {
+        history,
+        searchQuery: searchQueryFor(rawQuestion, history),
+      });
+    } catch (error) {
+      if (isQuotaError(error))
+        throw new ServiceUnavailableException(
+          'Trợ lý AI đã dùng hết hạn mức tạm thời. Vui lòng thử lại sau ít phút.',
+        );
+      throw error;
+    }
     await this.memory.record(session, identity, rawQuestion, fallbackRes.answer);
     return {
       ...fallbackRes,
