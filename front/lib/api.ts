@@ -7,11 +7,15 @@ import {
   FilterOptions, 
   MilestoneStatus,
 } from '../types';
-import { BACKEND_URL } from './backend';
+import { BACKEND_URL, withPortalKey } from './backend';
 
 // Browser calls use the session-checked teacher proxy; server components call the backend directly.
 const BACKEND_BASE_URL =
   typeof window === 'undefined' ? BACKEND_URL : '/api/teacher-data';
+
+// Trên máy chủ gọi thẳng backend nên gắn khóa cổng; trên trình duyệt đi qua proxy có kiểm tra phiên.
+const apiFetch = (url: string, init: RequestInit = {}) =>
+  fetch(url, withPortalKey(init));
 
 /**
  * Fetch paginated, filtered, and searched students directly from live database
@@ -29,7 +33,7 @@ export async function getStudents(options: FilterOptions = {}): Promise<Paginate
     if (options.sortBy) params.set('sortBy', options.sortBy);
     if (options.sortOrder) params.set('sortOrder', options.sortOrder);
 
-    const res = await fetch(`${BACKEND_BASE_URL}/students?${params.toString()}`, {
+    const res = await apiFetch(`${BACKEND_BASE_URL}/students?${params.toString()}`, {
       cache: 'no-store',
     });
 
@@ -47,7 +51,7 @@ export async function getStudents(options: FilterOptions = {}): Promise<Paginate
  */
 export async function getClassList(): Promise<string[]> {
   try {
-    const res = await fetch(`${BACKEND_BASE_URL}/students/classes`, { cache: 'no-store' });
+    const res = await apiFetch(`${BACKEND_BASE_URL}/students/classes`, { cache: 'no-store' });
     if (res.ok) {
       return await res.json();
     }
@@ -62,7 +66,7 @@ export async function getClassList(): Promise<string[]> {
  */
 export async function getTopAttendanceViolators(limit = 5): Promise<Student[]> {
   try {
-    const res = await fetch(`${BACKEND_BASE_URL}/students/top-violators?limit=${limit}`, {
+    const res = await apiFetch(`${BACKEND_BASE_URL}/students/top-violators?limit=${limit}`, {
       cache: 'no-store',
     });
     if (res.ok) {
@@ -79,7 +83,7 @@ export async function getTopAttendanceViolators(limit = 5): Promise<Student[]> {
  */
 export async function getStudentById(studentId: string): Promise<Student | null> {
   try {
-    const res = await fetch(`${BACKEND_BASE_URL}/students/${encodeURIComponent(studentId)}`, {
+    const res = await apiFetch(`${BACKEND_BASE_URL}/students/${encodeURIComponent(studentId)}`, {
       cache: 'no-store',
     });
     if (res.ok) {
@@ -113,7 +117,7 @@ export async function getAttendanceRecords(options: {
     if (options.sortBy) params.set('sortBy', options.sortBy);
     if (options.sortOrder) params.set('sortOrder', options.sortOrder);
 
-    const res = await fetch(`${BACKEND_BASE_URL}/attendance/records?${params.toString()}`, {
+    const res = await apiFetch(`${BACKEND_BASE_URL}/attendance/records?${params.toString()}`, {
       cache: 'no-store',
     });
     if (res.ok) {
@@ -147,7 +151,7 @@ export async function getTheses(options: {
     if (options.sortBy) params.set('sortBy', options.sortBy);
     if (options.sortOrder) params.set('sortOrder', options.sortOrder);
 
-    const res = await fetch(`${BACKEND_BASE_URL}/theses?${params.toString()}`, {
+    const res = await apiFetch(`${BACKEND_BASE_URL}/theses?${params.toString()}`, {
       cache: 'no-store',
     });
     if (res.ok) {
@@ -164,7 +168,7 @@ export async function getTheses(options: {
  */
 export async function getDashboardKPIs(): Promise<DashboardKPIs> {
   try {
-    const res = await fetch(`${BACKEND_BASE_URL}/dashboard/kpis`, { cache: 'no-store' });
+    const res = await apiFetch(`${BACKEND_BASE_URL}/dashboard/kpis`, { cache: 'no-store' });
     if (res.ok) {
       return await res.json();
     }
@@ -188,7 +192,7 @@ export async function updateThesisMilestone(
 }
 
 async function serviceRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const res = await fetch(`${BACKEND_BASE_URL}${path}`, {...init, cache:'no-store', signal:AbortSignal.timeout(130_000)});
+  const res = await apiFetch(`${BACKEND_BASE_URL}${path}`, {...init, cache:'no-store', signal:AbortSignal.timeout(130_000)});
   const data = await res.json();
   if (!res.ok) throw new Error(data.message || `Yêu cầu thất bại (${res.status})`);
   return data;
@@ -224,7 +228,7 @@ export async function askAcademicAI(question: string, conversationId?: string) {
         ? '/api/ai/ask'
         : `${BACKEND_BASE_URL}/ai/ask`;
 
-    const response = await fetch(endpoint, {
+    const response = await apiFetch(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ question, ...(conversationId ? { conversationId } : {}) }),
@@ -294,7 +298,7 @@ export interface AcademicWarningScanResponse {
  * Trigger academic warning scan across all students in MongoDB and dispatch alerts to n8n webhook
  */
 export async function scanAcademicWarnings(limit = 1): Promise<AcademicWarningScanResponse> {
-  const response = await fetch(`${BACKEND_BASE_URL}/academic-warning/scan`, {
+  const response = await apiFetch(`${BACKEND_BASE_URL}/academic-warning/scan`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ limit }),

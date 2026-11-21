@@ -9,6 +9,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { InternalApiGuard } from '../webhook/internal-api.guard';
+import { SkipPortalKey } from '../auth/portal-key.guard';
 import { SubmissionService } from './submission.service';
 import { PushService } from '../push/push.service';
 import { SubmissionListService } from './submission-list.service';
@@ -42,6 +43,8 @@ export class SubmissionController {
 }
 
 @Controller('api/internal')
+// n8n gọi bằng khóa riêng (x-internal-api-key), không đi qua cổng 3000.
+@SkipPortalKey()
 @UseGuards(InternalApiGuard)
 export class SubmissionCallbackController {
   constructor(

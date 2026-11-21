@@ -8,7 +8,16 @@ const origin = "http://127.0.0.1:3099";
 let upstreamFailure = false,
   emptyGrades = false;
 const received = [];
+// Khóa cổng: backend fixture từ chối mọi request thiếu khóa, như backend thật.
+const portalKey = randomBytes(32).toString("hex");
+let missingPortalKey = 0;
 const backend = createServer(async (req, res) => {
+  if (req.headers["x-portal-key"] !== portalKey) {
+    missingPortalKey++;
+    res.writeHead(401, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ message: "Thiếu hoặc sai khóa cổng." }));
+    return;
+  }
   let raw = "";
   for await (const chunk of req) raw += chunk;
   const body = raw ? JSON.parse(raw) : undefined;
@@ -157,6 +166,7 @@ function startServer() {
       env: {
         ...process.env,
         AUTH_SESSION_SECRET: sessionSecret,
+        PORTAL_API_KEY: portalKey,
         BACKEND_INTERNAL_URL: backendUrl,
         BACKEND_URL: backendUrl,
         NEXT_PUBLIC_BACKEND_URL: backendUrl,
@@ -669,8 +679,9 @@ try {
     ).status,
     503,
   );
+  assert.equal(missingPortalKey, 0, "every backend call carries the portal key");
   console.log(
-    "PASS: real API routing, backend-only login, role guards, ownership, empty grades, upstream failure, token/ACK forwarding, rate limits and logout. Fixture only; no live database or workflow.",
+    "PASS: real API routing, backend-only login, role guards, ownership, empty grades, upstream failure, token/ACK forwarding, portal key, rate limits and logout. Fixture only; no live database or workflow.",
   );
 } finally {
   if (backend.listening) await new Promise((resolve) => backend.close(resolve));

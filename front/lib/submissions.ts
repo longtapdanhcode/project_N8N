@@ -1,5 +1,5 @@
 import type { PaginatedResult, Submission } from "@/types";
-import { BACKEND_URL } from "./backend";
+import { backendFetch } from "./backend";
 
 const SORT_COLUMNS: Record<string, string> = {
   student: "studentId",
@@ -56,7 +56,7 @@ export async function fetchSubmissions(
 
   let response: Response;
   try {
-    response = await fetch(`${BACKEND_URL}/submissions?${params}`, {
+    response = await backendFetch(`/submissions?${params}`, {
       cache: "no-store",
       signal: AbortSignal.timeout(15_000),
     });

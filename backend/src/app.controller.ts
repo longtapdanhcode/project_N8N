@@ -13,6 +13,7 @@ import { AppService } from './app.service';
 import { WebhookService } from './modules/webhook/webhook.service';
 import { AiService } from './modules/ai/ai.service';
 import { readAskerIdentity, toFaqPayload } from './faq-identity';
+import { SkipPortalKey } from './modules/auth/portal-key.guard';
 import {
   FaqMemoryService,
   searchQueryFor,
@@ -42,6 +43,8 @@ export class AppController {
     private readonly memory: FaqMemoryService,
   ) {}
 
+  // Kiểm tra sống, không có dữ liệu: để mở cho healthcheck.
+  @SkipPortalKey()
   @Get()
   getHello(): string {
     return this.appService.getHello();
