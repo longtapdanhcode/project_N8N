@@ -16,7 +16,7 @@ Backend dùng cổng riêng, thường là 3001. Nếu backend chạy trực ti�
 npm --prefix backend run start:dev
 ```
 
-Backend cần MongoDB, Redis và các cấu hình dịch vụ thật. Docker Compose của repo mở Redis trên host cổng 6380; cấu hình backend phải khớp địa chỉ Redis thực tế. Không commit .env.
+Backend cần MongoDB, Redis và các cấu hình dịch vụ thật. Docker Compose của repo mở Redis trên host cổng 6380 (backend/.env.example đã đặt REDIS_PORT=6380). Chạy cả hệ thống bằng `docker compose up -d --build` (xem README mục 4.1): cổng 3000 và backend chạy trong Docker, backend không mở cổng ra máy. Không commit .env.
 
 ## Cấu hình frontend
 

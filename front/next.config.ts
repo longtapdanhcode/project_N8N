@@ -13,6 +13,10 @@ const cspHeader = `
 `.replace(/\s{2,}/g, ' ').trim();
 
 const nextConfig: NextConfig = {
+  // Bản standalone gọn cho Docker (docker/portal.Dockerfile đặt NEXT_OUTPUT=standalone).
+  // Chạy bình thường (npm run dev/build/start) không đổi.
+  ...(process.env.NEXT_OUTPUT === "standalone" ? { output: "standalone" as const } : {}),
+
   async redirects() {
     return [
       {

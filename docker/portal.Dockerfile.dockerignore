@@ -1,0 +1,12 @@
+**/node_modules
+**/.next
+**/dist
+front/public/student
+**/.env
+**/.env.*
+!**/.env.example
+**/*.log
+.git
+backend
+n8n
+docker
