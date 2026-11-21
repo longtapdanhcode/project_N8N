@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { COOKIE, readSession } from "@/lib/session";
 import { proxyBackend } from "@/lib/backend";
 import { conversationField } from "@/lib/faq";
+import { limitAsk } from "@/lib/rate-limit";
 
 export async function POST(request: NextRequest) {
   const session = readSession(request.cookies.get(COOKIE)?.value);
@@ -24,6 +25,8 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const limited = limitAsk(`teacher:${session.username}`);
+  if (limited) return limited;
   return proxyBackend("/ai/ask", {
     method: "POST",
     headers: { "Content-Type": "application/json" },

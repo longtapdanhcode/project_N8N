@@ -9,6 +9,13 @@ import {
 } from "@/lib/session";
 
 import { BACKEND_URL } from "@/lib/backend";
+import {
+  clientIp,
+  limiter,
+  RULES,
+  tooManyRequests,
+  waitText,
+} from "@/lib/rate-limit";
 
 function sameOrigin(req: NextRequest) {
   const originHeader = req.headers.get("origin");
@@ -59,6 +66,20 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // Chỉ đếm lần đăng nhập sai; đăng nhập đúng xóa bộ đếm của tài khoản.
+  const accountKey = `login:account:${identifier.toLowerCase()}`;
+  const ip = clientIp(req.headers);
+  const ipKey = ip ? `login:ip:${ip}` : null;
+  const wait = Math.max(
+    limiter.retryAfter(accountKey, RULES.loginAccount),
+    ipKey ? limiter.retryAfter(ipKey, RULES.loginIp) : 0,
+  );
+  if (wait)
+    return tooManyRequests(
+      wait,
+      `Đăng nhập sai quá nhiều lần. Vui lòng thử lại sau ${waitText(wait)}.`,
+    );
+
   try {
     // Chuyển tiếp request xác thực sang Backend NestJS cổng 3001
     const backendRes = await fetch(`${BACKEND_URL}/auth/login`, {
@@ -74,6 +95,10 @@ export async function POST(req: NextRequest) {
 
     const backendData = await backendRes.json().catch(() => ({}));
 
+    if ([400, 401, 403].includes(backendRes.status)) {
+      limiter.record(accountKey, RULES.loginAccount);
+      if (ipKey) limiter.record(ipKey, RULES.loginIp);
+    }
     if (!backendRes.ok || !backendData?.success || !backendData?.user) {
       return NextResponse.json(
         {
@@ -84,6 +109,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    limiter.reset(accountKey);
     const user = backendData.user;
     const backendRole = String(user.role).toUpperCase();
     if (!["STUDENT", "TEACHER", "ADMIN"].includes(backendRole)) {

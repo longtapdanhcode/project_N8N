@@ -24,7 +24,7 @@ Xem front/.env.example. Các API trung gian dùng BACKEND_INTERNAL_URL, rồi BA
 
 Danh sách bài nộp giảng viên đọc qua backend GET /submissions (lọc status, tìm theo tiêu đề/MSSV/họ tên, phân trang, sắp xếp theo các trường cho phép). Frontend không còn kết nối MongoDB. Backend lỗi sẽ báo lỗi, không giả thành danh sách rỗng. Bài nộp chưa lưu môn học nên cột Môn học hiển thị "Chưa gắn môn".
 
-Script chạy gốc tạo khóa phiên ngẫu nhiên nếu chưa có AUTH_SESSION_SECRET. Khởi động lại có thể yêu cầu đăng nhập lại. Triển khai lâu dài nên cấu hình khóa ngẫu nhiên riêng ít nhất 32 ký tự. Không dùng khóa mẫu công khai. Vai trò lấy từ backend; không tự chọn trên form.
+Khóa phiên AUTH_SESSION_SECRET đọc từ biến môi trường hoặc front/.env* (như Next). Khi chạy dev mà chưa có khóa hợp lệ, script gốc dùng khóa tạm và báo trước; khởi động lại sẽ phải đăng nhập lại. Production (`npm start` hoặc `next start`) bắt buộc có khóa ngẫu nhiên cố định ít nhất 32 ký tự, không phải chuỗi lặp; thiếu thì máy chủ dừng ngay với thông báo. Tạo khóa: `openssl rand -hex 48`, đặt trong front/.env.production.local. Không dùng khóa mẫu công khai. Vai trò lấy từ backend; không tự chọn trên form.
 
 ## Build
 
@@ -46,6 +46,11 @@ Service Worker chỉ kiểm soát /student/. Bản mới tự kích hoạt; tab 
 - Thông báo đẩy khi AI chấm xong: sinh viên bật ở tab Bài tập. Proxy /api/student-data/push/* gắn MSSV từ phiên; backend gửi khi n8n gọi /api/internal/notifications/assignment-analyzed lần đầu cho bài đó. Cần VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT trong backend/.env (sinh bằng `npx web-push generate-vapid-keys`); thiếu thì tính năng tắt và PWA vẫn tự hỏi kết quả. Đăng xuất sẽ hủy đăng ký trên thiết bị. iPhone/iPad chỉ nhận khi mở PWA từ Màn hình chính.
 - Hỏi đáp nhiều lượt: backend trả `conversationId` (UUID) cho /faq/ask và /ai/ask; giao diện gửi lại mã này ở câu sau. Proxy chỉ chuyển tiếp mã đúng dạng UUID; backend chỉ mở hội thoại của đúng vai trò + mã người dùng trong phiên, mã lạ thì tạo hội thoại mới. Lịch sử lưu ở MongoDB (`faq_conversations`, tối đa 20 lượt, tự xóa sau 7 ngày không dùng); 4 lượt gần nhất được gửi kèm (`history`, `searchQuery`) cho workflow n8n và cho nhánh Gemini dự phòng. Cần import lại n8n/faq-agent-12-nodes.json để workflow dùng lịch sử; bản cũ vẫn chạy nhưng không nhớ câu trước.
 - Nạp tài liệu: /documents/ingest-file nhận .pdf, .docx, .txt, .md tối đa 10 MB và 300 nghìn ký tự. PDF phải có lớp chữ (bản scan cần OCR trước); .doc cũ cần lưu lại thành .docx.
+- Giới hạn tần suất (front/lib/rate-limit.ts, trả 429 kèm Retry-After):
+  - đăng nhập sai: 5 lần / 15 phút cho mỗi tài khoản, đăng nhập đúng thì xóa bộ đếm; thêm 30 lần / 15 phút cho mỗi IP khi đặt TRUST_PROXY=true (chỉ bật khi cổng chạy sau reverse proxy tự ghi X-Forwarded-For);
+  - hỏi đáp AI: 6 câu / phút và 60 câu / giờ cho mỗi người, tổng 120 câu / phút cho cả cổng;
+  - nạp tài liệu: 20 lần / giờ cho mỗi giảng viên.
+  Bộ đếm nằm trong bộ nhớ của tiến trình Next: đủ cho một máy chủ; chạy nhiều bản thì cần kho chung (Redis). Gemini hết hạn mức ở nhánh dự phòng của /ai/ask trả 503 thay vì 500.
 - Mốc đồ án sinh viên chỉ được cập nhật khi backend xác nhận đồ án thuộc MSSV trong phiên.
 - Lỗi backend giữ mã trạng thái tương ứng; không kết nối được trả 502/503.
 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { COOKIE, readSession } from "@/lib/session";
 import { proxyBackend } from "@/lib/backend";
+import { limiter, RULES, tooManyRequests, waitText } from "@/lib/rate-limit";
 
 // Teacher browser calls go through here so the backend never has to be public.
 const allowedRead = [
@@ -40,6 +41,14 @@ async function handle(request: NextRequest) {
       { message: "Không tìm thấy API giảng viên." },
       { status: 404 },
     );
+  if (subPath.startsWith("documents/ingest-")) {
+    const wait = limiter.consume(`ingest:${session.username}`, RULES.ingestUser);
+    if (wait)
+      return tooManyRequests(
+        wait,
+        `Đã nạp nhiều tài liệu trong một giờ. Vui lòng thử lại sau ${waitText(wait)}.`,
+      );
+  }
   const headers = new Headers();
   let body: ArrayBuffer | undefined;
   if (request.method !== "GET") {
