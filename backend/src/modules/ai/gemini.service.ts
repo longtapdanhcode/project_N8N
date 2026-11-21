@@ -2,6 +2,26 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { GoogleGenAI, Type } from '@google/genai';
 
+export interface ConversationTurn {
+  question: string;
+  answer: string;
+}
+
+/**
+ * Lịch sử chỉ để hiểu câu hỏi nối tiếp; câu trả lời cũ không phải nguồn căn cứ.
+ * Mỗi câu cắt ngắn để không lấn chỗ tài liệu tham khảo.
+ */
+export function formatHistory(history: ConversationTurn[] = []) {
+  if (!history.length) return '';
+  const turns = history
+    .map(
+      (t, i) =>
+        `[${i + 1}] Hỏi: ${t.question.slice(0, 500)}\nĐáp: ${t.answer.slice(0, 800)}`,
+    )
+    .join('\n');
+  return `Các lượt hỏi đáp trước trong cùng cuộc trò chuyện (chỉ dùng để hiểu câu hỏi hiện tại đang nói về gì, không dùng làm căn cứ trả lời):\n${turns}\n\n`;
+}
+
 export interface StructuredAiResponse {
   answer: string;
   confidence_score: number;
@@ -175,6 +195,7 @@ export class GeminiService {
   async generateStructuredResponse(
     prompt: string,
     contextDocs: string[] = [],
+    history: ConversationTurn[] = [],
   ): Promise<StructuredAiResponse> {
     if (!prompt || prompt.trim() === '') {
       const errorMsg = 'Prompt cannot be empty.';
@@ -199,7 +220,7 @@ export class GeminiService {
         ? contextDocs.join('\n\n---\n\n')
         : 'Không có tài liệu tham khảo nào được tìm thấy.';
 
-    const contents = `Dưới đây là các tài liệu tham khảo được cung cấp:\n${contextText}\n\nCâu hỏi của sinh viên:\n${prompt}`;
+    const contents = `Dưới đây là các tài liệu tham khảo được cung cấp:\n${contextText}\n\n${formatHistory(history)}Câu hỏi của sinh viên:\n${prompt}`;
 
     let lastError: any;
     for (const model of modelChain) {

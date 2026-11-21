@@ -4,6 +4,7 @@ import { getModelToken } from '@nestjs/mongoose';
 import { getQueueToken } from '@nestjs/bullmq';
 import request from 'supertest';
 import { FaqController } from '../src/faq.controller';
+import { FaqMemoryService } from '../src/modules/faq-memory/faq-memory.service';
 import {
   SubmissionController,
   SubmissionCallbackController,
@@ -38,6 +39,14 @@ describe('n8n API contracts', () => {
     suggestions: ['Thêm kiểm thử'],
   };
 
+  const conversationId = '22222222-2222-4222-8222-222222222222';
+  const memory = {
+    open: jest.fn(async (identity: { userId?: string }) =>
+      identity.userId ? { conversationId, history: [] } : null,
+    ),
+    record: jest.fn(),
+  };
+
   beforeAll(async () => {
     const module = await Test.createTestingModule({
       controllers: [
@@ -50,6 +59,7 @@ describe('n8n API contracts', () => {
         SubmissionService,
         { provide: SubmissionListService, useValue: { list: jest.fn() } },
         { provide: PushService, useValue: push },
+        { provide: FaqMemoryService, useValue: memory },
         InternalApiGuard,
         ThesisService,
         {
@@ -232,10 +242,16 @@ describe('n8n API contracts', () => {
       success: true,
       data: { answer: 'Liên hệ cố vấn.' },
     });
-    await request(app.getHttpServer())
+    const ok = await request(app.getHttpServer())
       .post('/faq/ask')
-      .send({ question: '  Học phí?  ' })
+      .send({ question: '  Học phí?  ', studentId: '22IT001', conversationId })
       .expect(200);
+    expect(ok.body.conversationId).toBe(conversationId);
+    expect(memory.open).toHaveBeenCalledWith(
+      { role: 'student', userId: '22IT001' },
+      conversationId,
+    );
+    expect(memory.record).toHaveBeenCalledTimes(1);
     expect(webhook.sendToN8n).toHaveBeenCalledWith(
       expect.objectContaining({ question: 'Học phí?' }),
       'FAQ_QUESTION',
@@ -248,5 +264,7 @@ describe('n8n API contracts', () => {
       .post('/faq/ask')
       .send({ question: 'Học phí?' })
       .expect(502);
+    // Không lưu lượt hỏi khi workflow lỗi.
+    expect(memory.record).toHaveBeenCalledTimes(1);
   });
 });

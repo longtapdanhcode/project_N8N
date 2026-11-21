@@ -41,6 +41,18 @@
               "name": "studentId",
               "value": "={{ String($json.body?.studentId ?? '') }}",
               "type": "string"
+            },
+            {
+              "id": "search-query",
+              "name": "searchQuery",
+              "value": "={{ (typeof $json.body?.searchQuery === 'string' && $json.body.searchQuery.trim() ? $json.body.searchQuery : String($json.body?.question ?? '')).trim().slice(0, 8000) }}",
+              "type": "string"
+            },
+            {
+              "id": "history-text",
+              "name": "historyText",
+              "value": "={{ (Array.isArray($json.body?.history) ? $json.body.history : []).slice(-4).map((t, i) => '[' + (i + 1) + '] Hỏi: ' + String(t?.question ?? '').slice(0, 500) + '\\nĐáp: ' + String(t?.answer ?? '').slice(0, 800)).join('\\n') }}",
+              "type": "string"
             }
           ]
         },
@@ -113,7 +125,7 @@
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ model: 'models/gemini-embedding-001', content: { parts: [{ text: $json.question }] }, embedContentConfig: { outputDimensionality: 768 } }) }}",
+        "jsonBody": "={{ JSON.stringify({ model: 'models/gemini-embedding-001', content: { parts: [{ text: $json.searchQuery }] }, embedContentConfig: { outputDimensionality: 768 } }) }}",
         "options": {
           "timeout": 20000
         }
@@ -130,7 +142,7 @@
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const values = $input.first().json.embedding?.values;\nif (!Array.isArray(values) || values.length !== 768) throw new Error('Gemini không trả vector 768 chiều');\nreturn [{ json: { question: $('Chuẩn hóa câu hỏi').first().json.question, embedding: values } }];"
+        "jsCode": "const values = $input.first().json.embedding?.values;\nif (!Array.isArray(values) || values.length !== 768) throw new Error('Gemini không trả vector 768 chiều');\nconst input = $('Chuẩn hóa câu hỏi').first().json;\nreturn [{ json: { question: input.question, searchQuery: input.searchQuery, embedding: values } }];"
       }
     },
     {
@@ -149,7 +161,7 @@
         "genericAuthType": "httpCustomAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ query_text: $json.question, query_embedding: $json.embedding, match_count: 5 }) }}",
+        "jsonBody": "={{ JSON.stringify({ query_text: $json.searchQuery, query_embedding: $json.embedding, match_count: 5 }) }}",
         "options": {
           "timeout": 20000,
           "response": {
@@ -205,7 +217,7 @@
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const body = $('Tìm tài liệu').first().json.body;\nconst docs = Array.isArray(body) ? body.slice(0, 5) : [];\nconst context = docs.map((d, i) => `[${i + 1}] ${d.title ?? 'Tài liệu'}\\n${String(d.content ?? '').slice(0, 3000)}`).join('\\n\\n');\nreturn [{ json: { question: $('Chuẩn hóa câu hỏi').first().json.question, studentId: $('Chuẩn hóa câu hỏi').first().json.studentId, context, sources: docs.map(d => ({ id: d.id, title: d.title })), hasSources: docs.length > 0 } }];"
+        "jsCode": "const body = $('Tìm tài liệu').first().json.body;\nconst docs = Array.isArray(body) ? body.slice(0, 5) : [];\nconst context = docs.map((d, i) => `[${i + 1}] ${d.title ?? 'Tài liệu'}\\n${String(d.content ?? '').slice(0, 3000)}`).join('\\n\\n');\nreturn [{ json: { question: $('Chuẩn hóa câu hỏi').first().json.question, studentId: $('Chuẩn hóa câu hỏi').first().json.studentId, historyText: $('Chuẩn hóa câu hỏi').first().json.historyText, context, sources: docs.map(d => ({ id: d.id, title: d.title })), hasSources: docs.length > 0 } }];"
       }
     },
     {
@@ -224,7 +236,7 @@
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ contents: [{ parts: [{ text: 'Bạn là trợ lý sinh viên VKU. Chỉ trả lời dựa trên tài liệu bên dưới. Nếu không có căn cứ, nói không biết. Trả về JSON với answer (chuỗi), confidence (số 0..1), needsEscalation (boolean).\\nCâu hỏi: ' + $json.question + '\\nTài liệu:\\n' + ($json.context || '(không có tài liệu)') }] }], generationConfig: { responseMimeType: 'application/json' } }) }}",
+        "jsonBody": "={{ JSON.stringify({ contents: [{ parts: [{ text: 'Bạn là trợ lý sinh viên VKU. Chỉ trả lời dựa trên tài liệu bên dưới. Nếu không có căn cứ, nói không biết. Trả về JSON với answer (chuỗi), confidence (số 0..1), needsEscalation (boolean).' + ($json.historyText ? '\\nCác lượt hỏi đáp trước (chỉ để hiểu câu hỏi đang nói về gì, không dùng làm căn cứ):\\n' + $json.historyText : '') + '\\nCâu hỏi: ' + $json.question + '\\nTài liệu:\\n' + ($json.context || '(không có tài liệu)') }] }], generationConfig: { responseMimeType: 'application/json' } }) }}",
         "options": {
           "timeout": 20000
         }

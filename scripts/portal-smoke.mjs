@@ -399,6 +399,17 @@ try {
     200,
   );
   assert.equal(received.at(-1).body.userId, "fixture-teacher");
+  const conversationId = "44444444-4444-4444-8444-444444444444";
+  await request(
+    "/api/ai/ask",
+    jsonPost({ question: "Hỏi tiếp", conversationId }, teacher),
+  );
+  assert.equal(received.at(-1).body.conversationId, conversationId);
+  await request(
+    "/api/ai/ask",
+    jsonPost({ question: "Hỏi tiếp", conversationId: { $ne: null } }, teacher),
+  );
+  assert.equal(received.at(-1).body.conversationId, undefined);
   const theses = await (
     await request("/api/student-data/theses", { headers })
   ).json();
@@ -467,6 +478,12 @@ try {
     200,
   );
   assert.equal(received.at(-1).body.studentId, "SV_FIXTURE");
+  assert.equal(received.at(-1).body.conversationId, undefined);
+  await request(
+    "/api/student-data/faq/ask",
+    jsonPost({ question: "Hỏi tiếp", conversationId }, student),
+  );
+  assert.equal(received.at(-1).body.conversationId, conversationId);
   assert.equal(
     (
       await request("/api/student-data/attendance/history?student_id=FORGED", {

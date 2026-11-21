@@ -12,6 +12,10 @@ import { AppService } from './app.service';
 import { WebhookService } from './modules/webhook/webhook.service';
 import { AiService } from './modules/ai/ai.service';
 import { readAskerIdentity, toFaqPayload } from './faq-identity';
+import {
+  FaqMemoryService,
+  searchQueryFor,
+} from './modules/faq-memory/faq-memory.service';
 
 @Controller()
 export class AppController {
@@ -22,6 +26,7 @@ export class AppController {
     private readonly webhookService: WebhookService,
     private readonly aiService: AiService,
     private readonly configService: ConfigService,
+    private readonly memory: FaqMemoryService,
   ) {}
 
   @Get()
@@ -92,6 +97,10 @@ export class AppController {
     const identity = readAskerIdentity(body);
     const { role, userId } = identity;
     const n8nUrl = this.configService.get<string>('N8N_FAQ_URL');
+    const session = await this.memory.open(identity, body?.conversationId);
+    const conversation = session
+      ? { conversationId: session.conversationId }
+      : {};
 
     // 1. Chuyển tiếp yêu cầu sang n8n FAQ Workflow (bỏ qua nếu chưa cấu hình)
     try {
@@ -100,7 +109,7 @@ export class AppController {
         `[AppController /ai/ask] Dispatching question to n8n FAQ workflow for [${role ?? 'unknown'}] ${userId ?? 'anonymous'}`,
       );
       const result = await this.webhookService.sendToN8n(
-        toFaqPayload(rawQuestion, identity),
+        toFaqPayload(rawQuestion, identity, session),
         'FAQ_QUESTION',
         n8nUrl,
         0,
@@ -113,6 +122,7 @@ export class AppController {
         typeof (result.data as any).answer === 'string'
       ) {
         const d = result.data as any;
+        await this.memory.record(session, identity, rawQuestion, d.answer);
         const confidence = Number(d.confidence ?? d.confidence_score ?? 1);
         const needsEscalation = Boolean(
           d.needsEscalation ?? d.requires_human_escalation ?? false,
@@ -140,6 +150,7 @@ export class AppController {
           dispatched_to_n8n: true,
           studentId: userId,
           role,
+          ...conversation,
         };
       }
     } catch (n8nError: any) {
@@ -149,12 +160,18 @@ export class AppController {
     }
 
     // 2. Fallback sang dịch vụ RAG nội bộ nếu n8n gián đoạn
-    const fallbackRes = await this.aiService.askAssistant(rawQuestion);
+    const history = session?.history ?? [];
+    const fallbackRes = await this.aiService.askAssistant(rawQuestion, {
+      history,
+      searchQuery: searchQueryFor(rawQuestion, history),
+    });
+    await this.memory.record(session, identity, rawQuestion, fallbackRes.answer);
     return {
       ...fallbackRes,
       dispatched_to_n8n: false,
       studentId: userId,
       role,
+      ...conversation,
     };
   }
 }

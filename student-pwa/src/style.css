@@ -214,6 +214,26 @@ h3 {
   font-size: var(--text-sm);
   font-weight: 600;
 }
+.section-heading > button {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.faq-thread {
+  list-style: none;
+  padding: 0;
+  margin: 16px 0 0;
+}
+.faq-thread .response {
+  margin: 0 0 8px;
+}
+.faq-question {
+  margin: 0 0 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+  color: var(--primary);
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
 .prewrap {
   white-space: pre-wrap;
 }

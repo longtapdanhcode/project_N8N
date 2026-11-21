@@ -167,14 +167,28 @@ export async function registerCourse(profile: Profile, section: ClassSection) {
     throw new Error(result.message || "Đăng ký chưa thành công.");
   return result;
 }
-export const askFAQ = (question: string, studentId: string) =>
-  request<{
-    answer: string;
-    sources?: { id: string; title: string }[];
-    needsEscalation?: boolean;
-  }>(
+export interface FAQAnswer {
+  answer: string;
+  sources?: { id: string; title: string }[];
+  needsEscalation?: boolean;
+  /** Mã hội thoại; gửi lại ở câu sau để trợ lý hiểu câu hỏi nối tiếp. */
+  conversationId?: string;
+}
+export const askFAQ = (
+  question: string,
+  studentId: string,
+  conversationId?: string,
+) =>
+  request<FAQAnswer>(
     apiUrl("faq/ask"),
-    { method: "POST", body: JSON.stringify({ question, studentId }) },
+    {
+      method: "POST",
+      body: JSON.stringify({
+        question,
+        studentId,
+        ...(conversationId ? { conversationId } : {}),
+      }),
+    },
     130_000,
   );
 export const submitAssignment = (body: {

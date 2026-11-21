@@ -9,6 +9,7 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { DocumentService, IngestTextDto } from './document.service';
+import { MAX_UPLOAD_BYTES } from './file-text';
 
 @Controller('documents')
 export class DocumentController {
@@ -24,10 +25,12 @@ export class DocumentController {
   }
 
   /**
-   * Endpoint 2: Upload a text/markdown file to ingest into the Knowledge Base.
+   * Endpoint 2: Upload a .txt, .md, .pdf or .docx file (max 10 MB) to ingest into the Knowledge Base.
    */
   @Post('ingest-file')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(
+    FileInterceptor('file', { limits: { fileSize: MAX_UPLOAD_BYTES, files: 1 } }),
+  )
   async ingestFile(
     @UploadedFile() file: Express.Multer.File,
     @Body()
