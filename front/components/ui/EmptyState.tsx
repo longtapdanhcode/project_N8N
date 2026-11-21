@@ -17,15 +17,16 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
   className = '',
 }) => {
   return (
+    // Phẳng, không khung lồng trong bảng hay card.
     <div
-      className={`flex flex-col items-center justify-center p-8 text-center rounded-xl border border-dashed border-slate-300 bg-slate-50/50 ${className}`}
+      className={`flex flex-col items-center justify-center px-4 py-10 text-center ${className}`}
     >
-      <div className="w-12 h-12 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400 mb-3 shadow-inner">
-        {icon || <Inbox className="w-6 h-6 stroke-[1.5]" />}
+      <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-md border border-[var(--border)] text-[var(--muted)]">
+        {icon || <Inbox className="h-5 w-5" strokeWidth={1.5} />}
       </div>
-      <h3 className="text-sm font-semibold text-slate-800 mb-1">{title}</h3>
+      <h3 className="mb-1 text-sm font-semibold text-[var(--text)]">{title}</h3>
       {description && (
-        <p className="text-xs text-slate-500 max-w-sm mb-4 leading-relaxed">
+        <p className="mb-4 max-w-sm text-xs leading-relaxed text-[var(--muted)]">
           {description}
         </p>
       )}
