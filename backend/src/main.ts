@@ -3,6 +3,7 @@ import { NestExpressApplication } from '@nestjs/platform-express';
 import { Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AppModule } from './app.module';
+import { portalKeyProblem } from './modules/auth/portal-key.guard';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
@@ -32,6 +33,20 @@ async function bootstrap() {
   });
 
   const configService = app.get(ConfigService);
+
+  // Production phải có khóa cổng: thiếu thì ai gọi thẳng cổng 3001 cũng giả danh
+  // được người dùng. Đọc qua ConfigService để thấy cả biến trong backend/.env.
+  if (configService.get<string>('NODE_ENV') === 'production') {
+    const key = configService.get<string>('PORTAL_API_KEY')?.trim();
+    const problem = key ? portalKeyProblem(key) : 'Chưa đặt PORTAL_API_KEY.';
+    if (problem) {
+      logger.error(
+        `${problem} Đặt cùng một khóa ngẫu nhiên (openssl rand -hex 48) cho backend và cổng 3000 rồi chạy lại.`,
+      );
+      await app.close();
+      process.exit(1);
+    }
+  }
   const port = configService.get<number>('PORT') ?? 3000;
 
   await app.listen(port);

@@ -12,8 +12,11 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { timingSafeEqual } from 'node:crypto';
 import { SyncService } from './sync.service';
+import { SkipPortalKey } from '../auth/portal-key.guard';
 import { SupabaseStudentWebhookDto } from './dto/supabase-student-webhook.dto';
 
+// Supabase gọi bằng SUPABASE_WEBHOOK_SECRET riêng, không đi qua cổng 3000.
+@SkipPortalKey()
 @Controller('api/v1/internal/sync')
 export class SyncController {
   private readonly logger = new Logger(SyncController.name);

@@ -61,6 +61,11 @@ function loadEnv() {
 
 const env = loadEnv();
 const BACKEND_URL = `http://localhost:${env.PORT || '3001'}`;
+// Backend chặn request không mang khóa cổng khi đặt PORTAL_API_KEY trong backend/.env.
+const backendHeaders = {
+  'Content-Type': 'application/json',
+  ...(env.PORTAL_API_KEY ? { 'x-portal-key': env.PORTAL_API_KEY } : {}),
+};
 const N8N_URL = `http://localhost:${env.N8N_PORT || '5678'}`;
 
 // Helper: Ký HMAC SHA-256
@@ -135,7 +140,7 @@ async function runAllE2ETests() {
     const t0 = Date.now();
     const resBackend = await fetch(`${BACKEND_URL}/faq/ask`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: backendHeaders,
       body: JSON.stringify(faqInput),
     });
     const faqData = await resBackend.json();
@@ -183,7 +188,7 @@ async function runAllE2ETests() {
 
     const resSync = await fetch(`${BACKEND_URL}/attendance/offline-sync`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: backendHeaders,
       body: JSON.stringify(attendancePayload),
     });
     const syncData = await resSync.json();
@@ -239,7 +244,7 @@ async function runAllE2ETests() {
     // 3B. Test kích hoạt quét từ Backend MongoDB Aggregation
     const resScan = await fetch(`${BACKEND_URL}/academic-warning/scan`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: backendHeaders,
       body: JSON.stringify({ limit: 1 }),
     });
     const scanData = await resScan.json();
@@ -282,7 +287,7 @@ async function runAllE2ETests() {
 
     const resReg = await fetch(`${BACKEND_URL}/course-registration/register`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: backendHeaders,
       body: JSON.stringify(regPayload),
     });
     const regData = await resReg.json();

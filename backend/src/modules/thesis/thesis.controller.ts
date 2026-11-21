@@ -9,6 +9,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { InternalApiGuard } from '../webhook/internal-api.guard';
+import { SkipPortalKey } from '../auth/portal-key.guard';
 import { ThesisService, ThesisFilterDto } from './thesis.service';
 
 @Controller('theses')
@@ -36,6 +37,8 @@ export class ThesisController {
 }
 
 @Controller('internal/theses')
+// n8n gọi bằng khóa riêng (x-internal-api-key), không đi qua cổng 3000.
+@SkipPortalKey()
 @UseGuards(InternalApiGuard)
 export class ThesisFeedbackController {
   constructor(private readonly service: ThesisService) {}

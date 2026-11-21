@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { BullModule } from '@nestjs/bullmq';
@@ -16,6 +17,7 @@ import { StudentModule } from './modules/student/student.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { SyncModule } from './modules/sync/sync.module';
 import { FaqController } from './faq.controller';
+import { PortalKeyGuard } from './modules/auth/portal-key.guard';
 import { FaqMemoryModule } from './modules/faq-memory/faq-memory.module';
 
 @Module({
@@ -58,6 +60,6 @@ import { FaqMemoryModule } from './modules/faq-memory/faq-memory.module';
     FaqMemoryModule,
   ],
   controllers: [AppController, FaqController],
-  providers: [AppService],
+  providers: [AppService, { provide: APP_GUARD, useClass: PortalKeyGuard }],
 })
 export class AppModule {}

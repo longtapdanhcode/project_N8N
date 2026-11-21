@@ -8,7 +8,7 @@ import {
   type Session,
 } from "@/lib/session";
 
-import { BACKEND_URL } from "@/lib/backend";
+import { backendFetch } from "@/lib/backend";
 import {
   clientIp,
   limiter,
@@ -82,7 +82,7 @@ export async function POST(req: NextRequest) {
 
   try {
     // Chuyển tiếp request xác thực sang Backend NestJS cổng 3001
-    const backendRes = await fetch(`${BACKEND_URL}/auth/login`, {
+    const backendRes = await backendFetch("/auth/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
