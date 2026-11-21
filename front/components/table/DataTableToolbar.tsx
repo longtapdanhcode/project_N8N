@@ -117,7 +117,7 @@ export const DataTableToolbar: React.FC<DataTableToolbarProps> = ({
           value={searchValue}
           onChange={(e) => setSearchValue(e.target.value)}
           placeholder={searchPlaceholder}
-          className="w-full bg-slate-50 hover:bg-slate-100/70 focus:bg-white text-slate-900 placeholder:text-slate-400 text-xs rounded-lg border border-slate-200 hover:border-slate-300 focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20 pl-9 pr-8 py-2 outline-none transition-all"
+          className="w-full bg-slate-50 hover:bg-[var(--bg)] focus:bg-white text-slate-900 placeholder:text-slate-400 text-xs rounded-lg border border-slate-200 hover:border-slate-300 focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20 pl-9 pr-8 py-2 outline-none transition-all"
         />
         {searchValue && (
           <button

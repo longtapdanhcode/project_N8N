@@ -1,4 +1,5 @@
 import { Student, AttendanceRecord, Thesis, Submission } from '@/types';
+import { NO_MODEL, submissionStatus } from './submission-status';
 
 /**
  * Helper to download a CSV file in browser with UTF-8 BOM
@@ -172,15 +173,9 @@ export function exportSubmissionsToCSV(submissions: Submission[]) {
     escapeCSV(s.studentName || 'Chưa rõ'),
     escapeCSV(s.courseName || 'Chưa gắn môn'),
     escapeCSV(s.assignmentTitle),
-    escapeCSV(
-      s.status === 'COMPLETED'
-        ? 'ĐÃ PHÂN TÍCH'
-        : s.status === 'QUEUED' || s.status === 'PENDING'
-        ? 'ĐANG PHÂN TÍCH'
-        : 'THẤT BẠI'
-    ),
+    escapeCSV(submissionStatus(s.status).label),
     escapeCSV(s.feedback?.score !== undefined ? `${s.feedback.score}/10` : 'Chưa có'),
-    escapeCSV(s.model || 'gemini-3.5-flash-lite'),
+    escapeCSV(s.model || NO_MODEL),
     escapeCSV(new Date(s.createdAt).toLocaleString('vi-VN')),
   ]);
 

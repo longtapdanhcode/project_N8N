@@ -162,7 +162,7 @@ export function DataTable<TData, TValue>({
                 <tr
                   key={row.id}
                   onClick={() => onRowClick && onRowClick(row.original)}
-                  className={`hover:bg-slate-50/80 transition-colors ${
+                  className={`hover:bg-[var(--primary-soft)] transition-colors ${
                     onRowClick ? 'cursor-pointer' : ''
                   }`}
                 >
@@ -179,7 +179,7 @@ export function DataTable<TData, TValue>({
             ) : (
               // Empty State Row
               <tr>
-                <td colSpan={columns.length} className="p-8 text-center">
+                <td colSpan={columns.length} className="p-0 text-center">
                   <EmptyState
                     title={emptyTitle}
                     description={emptyDescription}

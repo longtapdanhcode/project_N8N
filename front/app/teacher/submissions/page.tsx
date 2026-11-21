@@ -45,45 +45,16 @@ async function SubmissionsDataContent({
     sortOrder,
   });
 
-  const completedCount = result.data.filter((s) => s.status === "COMPLETED").length;
-  const evaluatedScores = result.data.flatMap((s) =>
-    s.status === "COMPLETED" && typeof s.feedback?.score === "number"
-      ? [s.feedback.score]
-      : [],
-  );
-  const avgScore =
-    evaluatedScores.length > 0
-      ? (evaluatedScores.reduce((a, b) => a + b, 0) / evaluatedScores.length).toFixed(1)
-      : "0";
-
   return (
     <div className="space-y-4">
-      {/* Header Metric Bar */}
-      <div className="p-4 rounded-xl border border-slate-200 bg-white flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
-        <div>
-          <h2 className="text-sm font-bold text-slate-900">
-            Quản lý Bài tập & Đánh giá Tự động AI (n8n Workflow)
-          </h2>
-          <p className="text-slate-500 mt-0.5">
-            Theo dõi danh sách bài nộp của sinh viên, xem điểm số và nhận xét chi tiết từng tiêu chí Rubric do AI đề xuất.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 font-semibold border border-blue-200/60 tabular-nums">
-            Tổng bài nộp: {result.total}
-          </span>
-          <span className="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 font-semibold border border-emerald-200/60 tabular-nums">
-            Đã phân tích: {completedCount}
-          </span>
-          {evaluatedScores.length > 0 && (
-            <span className="px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-700 font-semibold border border-indigo-200/60 tabular-nums">
-              Điểm TB AI: {avgScore} / 10
-            </span>
-          )}
-          <span className="px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 font-semibold border border-slate-200 tabular-nums">
-            Hiển thị: {result.data.length} bài
-          </span>
-        </div>
+      {/* Tiêu đề trang đã có ở DashboardShell; ở đây chỉ mô tả ngắn và tổng thật từ backend. */}
+      <div className="flex flex-col gap-1 text-xs sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-[var(--muted)]">
+          Bài sinh viên nộp và nhận xét AI chấm theo tiêu chí. Điểm AI chỉ để tham khảo.
+        </p>
+        <p className="font-mono tabular-nums text-[var(--muted)]">
+          Tổng <span className="text-[var(--text)]">{result.total}</span> bài nộp
+        </p>
       </div>
 
       <SubmissionsTableClient

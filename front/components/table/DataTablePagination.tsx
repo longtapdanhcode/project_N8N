@@ -52,7 +52,7 @@ export const DataTablePagination: React.FC<DataTablePaginationProps> = ({
   }
 
   return (
-    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 border-t border-slate-200 bg-slate-50/50 text-xs">
+    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 border-t border-slate-200 bg-[var(--surface)] text-xs">
       {/* Information string with tabular nums */}
       <div className="text-slate-500 tabular-nums">
         Hiển thị <strong className="text-slate-800">{startRecord}</strong> -{' '}

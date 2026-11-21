@@ -4,10 +4,11 @@ import React, { useState, useMemo } from "react";
 import { ColumnDef } from "@tanstack/react-table";
 import { Submission } from "@/types";
 import { DataTable, DataTableToolbar } from "@/components/table";
-import { Badge } from "@/components/ui/Badge";
+import { SubmissionStatusBadge } from "@/components/dashboard/SubmissionStatusBadge";
+import { SUBMISSION_STATUS_FILTERS } from "@/lib/submission-status";
 import { SubmissionDetailModal } from "@/components/dashboard/SubmissionDetailModal";
 import { exportSubmissionsToCSV } from "@/lib/export";
-import { CheckCircle2, Bot } from "lucide-react";
+import { CheckCircle2, FileSearch } from "lucide-react";
 
 interface SubmissionsTableClientProps {
   initialData: Submission[];
@@ -42,7 +43,7 @@ export const SubmissionsTableClient: React.FC<SubmissionsTableClientProps> = ({
 
   const handleExport = () => {
     exportSubmissionsToCSV(submissions);
-    showToast(`Đã xuất ${submissions.length} bài nộp ra file CSV!`);
+    showToast(`Đã xuất ${submissions.length} bài nộp của trang này ra tệp CSV.`);
   };
 
   const formatDate = (isoStr?: string) => {
@@ -67,10 +68,10 @@ export const SubmissionsTableClient: React.FC<SubmissionsTableClientProps> = ({
         header: "Sinh viên / MSSV",
         cell: ({ row }) => (
           <div className="flex flex-col min-w-0">
-            <span className="font-semibold text-slate-900 leading-snug">
+            <span className="font-semibold text-[var(--text)] leading-snug">
               {row.original.studentName}
             </span>
-            <span className="font-mono text-xs text-slate-500 mt-0.5">
+            <span className="font-mono text-xs text-[var(--muted)] mt-0.5">
               {row.original.studentId}
             </span>
           </div>
@@ -83,9 +84,11 @@ export const SubmissionsTableClient: React.FC<SubmissionsTableClientProps> = ({
         // Bài nộp chưa lưu môn học: không đoán, không cho sắp xếp theo cột này.
         enableSorting: false,
         cell: ({ row }) => (
-          <span className="font-medium text-slate-700">
-            {row.original.courseName || "Chưa gắn môn"}
-          </span>
+          row.original.courseName ? (
+            <span className="font-medium text-[var(--text)]">{row.original.courseName}</span>
+          ) : (
+            <span className="whitespace-nowrap text-[var(--muted)]">Chưa gắn môn</span>
+          )
         ),
       },
       {
@@ -94,11 +97,11 @@ export const SubmissionsTableClient: React.FC<SubmissionsTableClientProps> = ({
         header: "Tiêu đề bài nộp",
         cell: ({ row }) => (
           <div className="flex flex-col min-w-0 max-w-sm">
-            <span className="font-semibold text-slate-900 leading-snug">
+            <span className="font-semibold text-[var(--text)] leading-snug">
               {row.original.assignmentTitle}
             </span>
             {row.original.criteria && row.original.criteria.length > 0 && (
-              <span className="text-[11px] text-slate-400 mt-0.5">
+              <span className="text-[11px] text-[var(--muted)] mt-0.5">
                 {row.original.criteria.length} tiêu chí Rubric
               </span>
             )}
@@ -110,7 +113,7 @@ export const SubmissionsTableClient: React.FC<SubmissionsTableClientProps> = ({
         accessorKey: "createdAt",
         header: "Thời gian nộp",
         cell: ({ row }) => (
-          <span className="text-slate-600 text-xs tabular-nums">
+          <span className="text-[var(--muted)] text-xs tabular-nums">
             {formatDate(row.original.createdAt)}
           </span>
         ),
@@ -120,36 +123,16 @@ export const SubmissionsTableClient: React.FC<SubmissionsTableClientProps> = ({
         accessorKey: "status",
         header: "Trạng thái AI",
         cell: ({ row }) => {
-          const status = row.original.status;
           const score = row.original.feedback?.score;
-
-          if (status === "COMPLETED") {
-            return (
-              <div className="flex items-center gap-2">
-                <Badge variant="success" dot size="sm">
-                  ĐÃ PHÂN TÍCH
-                </Badge>
-                {score !== undefined && (
-                  <span className="font-bold text-blue-700 text-xs tabular-nums">
-                    {score}/10
-                  </span>
-                )}
-              </div>
-            );
-          }
-
-          if (status === "QUEUED" || status === "PENDING") {
-            return (
-              <Badge variant="warning" dot size="sm">
-                ĐANG PHÂN TÍCH
-              </Badge>
-            );
-          }
-
           return (
-            <Badge variant="danger" dot size="sm">
-              THẤT BẠI
-            </Badge>
+            <div className="flex items-center gap-2">
+              <SubmissionStatusBadge status={row.original.status} />
+              {row.original.status === "COMPLETED" && typeof score === "number" && (
+                <span className="font-mono text-xs font-semibold tabular-nums text-[var(--primary)]">
+                  {score}/10
+                </span>
+              )}
+            </div>
           );
         },
       },
@@ -164,10 +147,11 @@ export const SubmissionsTableClient: React.FC<SubmissionsTableClientProps> = ({
                 e.stopPropagation();
                 setSelectedSubmission(row.original);
               }}
-              className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-800 hover:underline cursor-pointer"
+              aria-label={`Xem chi tiết bài nộp của ${row.original.studentName || row.original.studentId}`}
+              className="inline-flex min-h-8 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-[var(--primary)] hover:bg-[var(--primary-soft)] cursor-pointer"
             >
-              <Bot className="w-3.5 h-3.5" />
-              <span>Xem đánh giá AI</span>
+              <FileSearch className="h-3.5 w-3.5" strokeWidth={1.5} />
+              <span>Xem chi tiết</span>
             </button>
           </div>
         ),
@@ -180,21 +164,20 @@ export const SubmissionsTableClient: React.FC<SubmissionsTableClientProps> = ({
     <>
       {/* Toast Notification */}
       {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-xl border border-slate-700 flex items-center gap-3 text-xs animate-in slide-in-from-bottom-2 duration-200">
-          <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+        <div
+          role="status"
+          className="fixed bottom-6 right-6 z-50 flex items-center gap-3 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-4 py-3 text-xs text-[var(--text)]"
+        >
+          <CheckCircle2 className="h-4 w-4 flex-shrink-0 text-[var(--primary)]" strokeWidth={1.5} />
           <span>{toastMessage}</span>
         </div>
       )}
 
       <DataTableToolbar
-        searchPlaceholder="Tìm theo tên bài nộp, sinh viên, MSSV, môn học..."
+        searchPlaceholder="Tìm theo tiêu đề bài, họ tên hoặc MSSV"
         showClassFilter={false}
         showStatusFilter={true}
-        statusOptions={[
-          { label: "Đã phân tích", value: "COMPLETED" },
-          { label: "Đang phân tích", value: "QUEUED" },
-          { label: "Thất bại", value: "FAILED" },
-        ]}
+        statusOptions={SUBMISSION_STATUS_FILTERS}
         onExport={handleExport}
         exportLabel="Xuất CSV bài nộp"
       />
@@ -207,7 +190,7 @@ export const SubmissionsTableClient: React.FC<SubmissionsTableClientProps> = ({
         pageSize={pageSize}
         totalPages={totalPages}
         emptyTitle="Chưa có bài nộp nào"
-        emptyDescription="Thử thay đổi từ khóa tìm kiếm hoặc lọc theo trạng thái khác."
+        emptyDescription="Sinh viên nộp bài trong cổng sinh viên; bài mới sẽ hiện ở đây. Nếu đang lọc, thử bỏ từ khóa hoặc chọn trạng thái khác."
         onRowClick={(sub) => setSelectedSubmission(sub)}
       />
 
