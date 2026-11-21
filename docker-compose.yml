@@ -1,58 +1,135 @@
+# VKU AI Student Support: toàn bộ hệ thống.
+#
+#   cp .env.example .env              # điền các khóa dùng chung (xem .env.example)
+#   cp backend/.env.example backend/.env   # khóa riêng của backend: Gemini, Supabase, VAPID…
+#   docker compose up -d --build
+#
+# Mở http://localhost:3000. Backend không mở cổng ra máy; chỉ cổng 3000 gọi được nó.
+# Chỉ chạy hạ tầng để chạy backend/front trên máy: docker compose up -d vku-mongo vku-redis vku-n8n
 
 services:
   # CSDL chính cho luồng nghiệp vụ
   vku-mongo:
     image: mongo:6.0
-    container_name: vku-mongo
-    restart: always
+    restart: unless-stopped
     ports:
-      - "27017:27017"
+      - "127.0.0.1:${MONGO_HOST_PORT:-27017}:27017"
     volumes:
       - vku_mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.runCommand({ ping: 1 })"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
 
-  # Message Queue & Cache
+  # Hàng đợi chấm bài (BullMQ). Bật AOF để không mất việc khi khởi động lại.
   vku-redis:
     image: redis:7.0-alpine
-    container_name: vku-redis
-    restart: always
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
     ports:
-      - "6380:6379"
+      # Mặc định 6380 để không đụng Redis khác trên máy; backend chạy trên máy dùng REDIS_PORT=6380.
+      - "127.0.0.1:${REDIS_HOST_PORT:-6380}:6379"
+    volumes:
+      - vku_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
 
   # Nền tảng điều phối AI
   vku-n8n:
-    image: n8nio/n8n:latest
-    container_name: vku-n8n
-    restart: always
+    image: n8nio/n8n:2.41.7
+    restart: unless-stopped
     ports:
-      - "5678:5678"
+      - "127.0.0.1:${N8N_HOST_PORT:-5678}:5678"
     environment:
-      - N8N_HOST=vku-n8n.orb.local
-      - N8N_PORT=5678
-      - N8N_PROTOCOL=http
-      - NODE_ENV=production
-      - WEBHOOK_URL=http://vku-n8n.orb.local:5678/
-      - GENERIC_TIMEZONE=Asia/Ho_Chi_Minh
-      - NODE_FUNCTION_ALLOW_BUILTIN=*
-      - NODE_FUNCTION_ALLOW_EXTERNAL=*
-      - WEBHOOK_SECRET=616a09a9323b2d861c69d6fa1139a4db18aff7e24ea818bd292a6469bb80dd98
+      N8N_HOST: ${N8N_HOST:-localhost}
+      N8N_PORT: "5678"
+      N8N_PROTOCOL: ${N8N_PROTOCOL:-http}
+      WEBHOOK_URL: ${N8N_PUBLIC_URL:-http://localhost:5678/}
+      NODE_ENV: production
+      GENERIC_TIMEZONE: Asia/Ho_Chi_Minh
+      TZ: Asia/Ho_Chi_Minh
+      NODE_FUNCTION_ALLOW_BUILTIN: "*"
+      NODE_FUNCTION_ALLOW_EXTERNAL: "*"
+      # Workflow đọc $env.WEBHOOK_SECRET (HMAC) và $env.NESTJS_BASE_URL (gọi lại backend).
+      N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"
+      WEBHOOK_SECRET: ${WEBHOOK_SECRET:-}
+      NESTJS_BASE_URL: http://vku-backend:3001
     volumes:
       - vku_n8n_data:/home/node/.n8n
 
-  # Cơ sở dữ liệu Vector cho AI (RAG Core)
+  # Backend NestJS: chỉ trong mạng Docker, không mở cổng ra máy.
+  vku-backend:
+    build:
+      context: ./backend
+      dockerfile: ../docker/backend.Dockerfile
+    restart: unless-stopped
+    env_file:
+      - path: ./backend/.env
+        required: false
+    environment:
+      NODE_ENV: production
+      PORT: "3001"
+      MONGO_URI: mongodb://vku-mongo:27017/vku-ai-support
+      REDIS_HOST: vku-redis
+      REDIS_PORT: "6379"
+      N8N_WEBHOOK_URL: http://vku-n8n:5678/webhook/test-event
+      N8N_COURSE_REGISTRATION_URL: http://vku-n8n:5678/webhook/course-registration
+      N8N_ACADEMIC_WARNING_URL: http://vku-n8n:5678/webhook/academic-warning-alert
+      N8N_ATTENDANCE_SYNC_URL: http://vku-n8n:5678/webhook/attendance-offline-sync
+      N8N_FAQ_URL: http://vku-n8n:5678/webhook/student-faq
+      N8N_ASSIGNMENT_URL: http://vku-n8n:5678/webhook/assignment-analyzed
+      N8N_THESIS_URL: http://vku-n8n:5678/webhook/thesis-milestone-updated
+      # Khóa dùng chung lấy từ .env gốc. Thiếu PORTAL_API_KEY thì backend tự dừng.
+      PORTAL_API_KEY: ${PORTAL_API_KEY:-}
+      WEBHOOK_SECRET: ${WEBHOOK_SECRET:-}
+      N8N_INTERNAL_API_KEY: ${N8N_INTERNAL_API_KEY:-}
+    expose:
+      - "3001"
+    depends_on:
+      vku-mongo:
+        condition: service_healthy
+      vku-redis:
+        condition: service_healthy
+
+  # Cổng 3000: giảng viên tại /teacher, PWA sinh viên tại /student.
+  vku-portal:
+    build:
+      context: .
+      dockerfile: docker/portal.Dockerfile
+    restart: unless-stopped
+    ports:
+      - "${PORTAL_HOST_PORT:-3000}:3000"
+    environment:
+      BACKEND_INTERNAL_URL: http://vku-backend:3001
+      # Thiếu hoặc yếu thì cổng tự dừng khi khởi động (front/instrumentation.ts).
+      AUTH_SESSION_SECRET: ${AUTH_SESSION_SECRET:-}
+      PORTAL_API_KEY: ${PORTAL_API_KEY:-}
+      TRUST_PROXY: ${TRUST_PROXY:-false}
+    depends_on:
+      vku-backend:
+        condition: service_healthy
+
+  # Postgres + pgvector cục bộ. Backend hiện dùng Supabase (SUPABASE_URL), không dùng dịch vụ này.
+  # Bật khi cần: docker compose --profile pgvector up -d vku-pgvector
   vku-pgvector:
-    image: ankane/pgvector:latest
-    container_name: vku-pgvector
-    restart: always
+    image: ankane/pgvector:v0.5.1
+    profiles: ["pgvector"]
+    restart: unless-stopped
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: supersecretpassword
+      POSTGRES_PASSWORD: ${PGVECTOR_PASSWORD:-}
       POSTGRES_DB: vku_ai_rag
     ports:
-      - "5432:5432"
+      - "127.0.0.1:${PGVECTOR_HOST_PORT:-5432}:5432"
     volumes:
       - vku_pg_data:/var/lib/postgresql/data
 
 volumes:
   vku_mongo_data:
+  vku_redis_data:
   vku_n8n_data:
   vku_pg_data:

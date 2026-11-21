@@ -44,7 +44,7 @@ flowchart TD
     subgraph DataAndAI ["AI & CSDL & Tự động hóa"]
         GeminiService --> GoogleAI["Google Gemini 2.5 Flash / Embeddings"]
         SupabaseService --> SupabaseCloud["Supabase PostgreSQL (Hybrid Search RRF)"]
-        WebhookService --> N8N["n8n Workflow Automation (Port 5679)"]
+        WebhookService --> N8N["n8n Workflow Automation (Port 5678)"]
         AssignmentProcessor --> Redis["Redis 7.0 Queue (Port 6380)"]
         CoreBackend --> Mongo["MongoDB 6.0 Nghiệp vụ (Port 27017)"]
     end
@@ -87,7 +87,8 @@ flowchart TD
 
 ```
 vku-ai-system/
-├── docker-compose.yml              # Hạ tầng Docker: n8n, MongoDB, Redis, PGVector
+├── docker-compose.yml              # Toàn bộ hệ thống: cổng 3000, backend, n8n, MongoDB, Redis
+├── docker/                         # Dockerfile cho backend và cổng 3000
 ├── PROJECT_AUDIT.md                # Báo cáo kiểm toán toàn diện hệ thống
 ├── README.md                       # Tài liệu hướng dẫn dự án
 └── backend/
@@ -118,46 +119,37 @@ vku-ai-system/
 
 ## 4. Hướng dẫn Khởi chạy
 
-### 4.1. Khởi chạy Hạ tầng Docker
+### 4.1. Chạy toàn bộ bằng Docker
 
-Khởi động các dịch vụ phụ trợ nền tảng:
 ```bash
-docker compose up -d
+cp .env.example .env                    # khóa dùng chung: AUTH_SESSION_SECRET, PORTAL_API_KEY, WEBHOOK_SECRET, N8N_INTERNAL_API_KEY
+cp backend/.env.example backend/.env    # khóa riêng của backend: Gemini, Supabase, VAPID…
+docker compose up -d --build
 ```
 
-Các cổng dịch vụ mặc định:
-- **n8n Workflow**: `http://localhost:5679`
-- **MongoDB**: `localhost:27017`
-- **Redis**: `localhost:6380` (container port 6379)
-- **Local pgvector**: `localhost:5432`
+Tạo mỗi khóa trong `.env` bằng `openssl rand -hex 48`. Thiếu `AUTH_SESSION_SECRET` hoặc `PORTAL_API_KEY` thì cổng 3000 và backend tự dừng.
 
-### 4.2. Thiết lập Biến Môi trường
+| Dịch vụ | Địa chỉ trên máy | Ghi chú |
+| :--- | :--- | :--- |
+| Cổng 3000 (giảng viên + PWA sinh viên) | `http://localhost:3000` | Đổi bằng `PORTAL_HOST_PORT` |
+| Backend NestJS | không mở ra máy | Chỉ cổng 3000 và n8n gọi được, trong mạng Docker |
+| n8n | `http://127.0.0.1:5678` | `N8N_HOST_PORT` |
+| MongoDB | `127.0.0.1:27017` | `MONGO_HOST_PORT` |
+| Redis | `127.0.0.1:6380` | `REDIS_HOST_PORT`; container dùng 6379 |
+| pgvector cục bộ | `127.0.0.1:5432` | Chỉ khi `--profile pgvector`; backend hiện dùng Supabase |
 
-Vào thư mục `backend`, sao chép file mẫu:
+Trong n8n: import các workflow trong `n8n/`, đặt credential "Header Auth" `x-internal-api-key` bằng `N8N_INTERNAL_API_KEY`. Workflow đọc `$env.WEBHOOK_SECRET` và `$env.NESTJS_BASE_URL` (compose đặt sẵn `http://vku-backend:3001`).
+
+Webhook đồng bộ sinh viên từ Supabase cloud cần gọi tới `/api/v1/internal/sync/supabase-student`. Backend không mở cổng ra ngoài, nên khi dùng tính năng này hãy mở riêng đường dẫn đó qua reverse proxy.
+
+### 4.2. Chạy backend trên máy (phát triển)
+
+Chỉ bật hạ tầng bằng Docker:
 ```bash
-cd backend
-cp .env.example .env
+docker compose up -d vku-mongo vku-redis vku-n8n
 ```
 
-Điền các thông số cần thiết trong `.env`:
-```env
-PORT=3001
-MONGO_URI=mongodb://localhost:27017/vku-ai-support
-REDIS_HOST=localhost
-REDIS_PORT=6379
-N8N_WEBHOOK_URL=http://localhost:5678/webhook-test/test-event
-WEBHOOK_SECRET=vku_super_secret_key_2026
-DATABASE_URL=postgresql://postgres:supersecretpassword@localhost:5432/vku_ai_rag
-
-# Google Gemini AI
-GEMINI_API_KEY=your_gemini_api_key_here
-GEMINI_MODEL=gemini-2.5-flash
-GEMINI_EMBEDDING_MODEL=gemini-embedding-001
-
-# Supabase (pgvector & Hybrid Search)
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key_here
-```
+Sao chép `backend/.env.example` thành `backend/.env` và điền các giá trị. File mẫu đã khớp cổng của compose (MongoDB 27017, Redis 6380, n8n 5678). Khi chạy dev có thể để trống `PORTAL_API_KEY` ở cả backend và cổng 3000.
 
 ### 4.3. Cài đặt và Chạy Backend
 
