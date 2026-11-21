@@ -81,7 +81,7 @@ describe('AttendanceService', () => {
       ],
     };
 
-    const result = await service.syncOfflineAttendance(dto);
+    const result = await service.syncOfflineAttendance(dto, 'sync-batch-1');
     const sendToN8nMock = jest.spyOn(webhookService, 'sendToN8n');
 
     expect(sendToN8nMock).toHaveBeenCalledWith(
@@ -91,6 +91,10 @@ describe('AttendanceService', () => {
       }),
       'OFFLINE_ATTENDANCE_SYNC',
       'http://localhost:5678/webhook/attendance-offline-sync',
+      undefined,
+      undefined,
+      // Idempotency-Key của PWA được chuyển cho n8n để bỏ trùng khi gửi lại.
+      { deliveryId: 'sync-batch-1' },
     );
     expect(result.ack_token).toBe('ack-test-123');
     expect(result.accepted_count).toBe(2);

@@ -69,6 +69,9 @@ describe('CourseRegistrationService', () => {
       dto,
       'COURSE_REGISTRATION',
       'http://localhost:5678/webhook/course-registration',
+      undefined,
+      undefined,
+      { deliveryId: undefined },
     );
     expect(result.registration_id).toBe('reg-001');
     expect(result.status).toBe('ENROLLED');

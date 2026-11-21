@@ -92,4 +92,37 @@ describe('AcademicWarningService', () => {
     expect(result.total_violations).toBe(2);
     expect(result.dispatched_count).toBe(2);
   });
+
+  it('dispatches at most 5 alerts at once, each with a per-day delivery id', async () => {
+    const many = Array.from({ length: 12 }, (_, i) => ({
+      ...mockViolations[0],
+      _id: `22GIT${String(i).padStart(3, '0')}`,
+    }));
+    mockStudentModel.aggregate.mockReturnValueOnce({
+      exec: jest.fn().mockResolvedValue(many),
+    });
+    let running = 0;
+    let peak = 0;
+    const sendToN8nMock = jest
+      .spyOn(webhookService, 'sendToN8n')
+      .mockImplementation(async (payload: any) => {
+        running++;
+        peak = Math.max(peak, running);
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        running--;
+        // Một em lỗi không làm hỏng cả lượt quét.
+        return { success: payload.student_id !== '22GIT003', statusCode: 200 };
+      });
+
+    const result = await service.scanAndDispatchWarnings(12);
+
+    expect(sendToN8nMock).toHaveBeenCalledTimes(12);
+    expect(peak).toBe(5);
+    expect(result.dispatched_count).toBe(11);
+    const [payload, , , , , options] = sendToN8nMock.mock.calls[0] as any[];
+    expect(options).toEqual({
+      deliveryId: `academic-warning:${payload.student_id}:${payload.scanned_at.slice(0, 10)}`,
+      deadlineMs: 15000,
+    });
+  });
 });

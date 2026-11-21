@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Headers, Post, Query } from '@nestjs/common';
 import { AttendanceService } from './attendance.service';
 import { OfflineAttendanceSyncDto } from './dto/offline-attendance-sync.dto';
 
@@ -12,8 +12,14 @@ export class AttendanceController {
    * dispatches to n8n webhook, and returns sync receipt to client.
    */
   @Post('offline-sync')
-  async syncOfflineAttendance(@Body() body: OfflineAttendanceSyncDto) {
-    return await this.attendanceService.syncOfflineAttendance(body);
+  async syncOfflineAttendance(
+    @Body() body: OfflineAttendanceSyncDto,
+    @Headers('idempotency-key') idempotencyKey?: string,
+  ) {
+    return await this.attendanceService.syncOfflineAttendance(
+      body,
+      idempotencyKey,
+    );
   }
 
   /**

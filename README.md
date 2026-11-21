@@ -140,6 +140,8 @@ Tạo mỗi khóa trong `.env` bằng `openssl rand -hex 48`. Thiếu `AUTH_SESS
 
 Trong n8n: import các workflow trong `n8n/`, đặt credential "Header Auth" `x-internal-api-key` bằng `N8N_INTERNAL_API_KEY`. Workflow đọc `$env.WEBHOOK_SECRET` và `$env.NESTJS_BASE_URL` (compose đặt sẵn `http://vku-backend:3001`).
 
+Backend gửi sự kiện tới n8n kèm `x-signature` (HMAC), `X-Event-Type`, `X-Delivery-Id` và `X-Delivery-Attempt`. Backend chỉ tự gửi lại khi chắc n8n chưa xử lý (lỗi kết nối, HTTP 429/502/503/504), không gửi lại khi quá thời gian chờ hoặc HTTP 500 để tránh chạy trùng. `X-Delivery-Id` giữ nguyên qua các lần gửi lại; điểm danh và đăng ký học phần dùng `Idempotency-Key` của PWA, cảnh báo học vụ dùng `academic-warning:<MSSV>:<ngày>`. Workflow có tác dụng phụ (email, ghi dữ liệu) nên bỏ qua mã đã xử lý.
+
 Webhook đồng bộ sinh viên từ Supabase cloud cần gọi tới `/api/v1/internal/sync/supabase-student`. Backend không mở cổng ra ngoài, nên khi dùng tính năng này hãy mở riêng đường dẫn đó qua reverse proxy.
 
 ### 4.2. Chạy backend trên máy (phát triển)

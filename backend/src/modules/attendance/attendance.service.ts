@@ -32,7 +32,10 @@ export class AttendanceService {
    * Receives offline attendance batch from PWA client, attaches synced_at timestamp,
    * forwards to n8n webhook workflow with HMAC signature, and returns ack/summary response.
    */
-  async syncOfflineAttendance(dto: OfflineAttendanceSyncDto) {
+  async syncOfflineAttendance(
+    dto: OfflineAttendanceSyncDto,
+    idempotencyKey?: string,
+  ) {
     const syncedAt = new Date().toISOString();
     const payload = {
       device_id: dto.device_id,
@@ -49,10 +52,14 @@ export class AttendanceService {
       'http://localhost:5678/webhook/attendance-offline-sync',
     );
 
+    // PWA gửi lại cùng Idempotency-Key cho một lô; chuyển cho n8n làm X-Delivery-Id để bỏ trùng.
     const deliveryResult = await this.webhookService.sendToN8n(
       payload,
       'OFFLINE_ATTENDANCE_SYNC',
       n8nAttendanceUrl,
+      undefined,
+      undefined,
+      { deliveryId: idempotencyKey },
     );
 
     if (deliveryResult.success && deliveryResult.data) {
