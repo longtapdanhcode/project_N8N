@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import {
   askFAQ,
+  type FAQAnswer,
   getCourses,
   getSections,
   registerCourse,
@@ -20,7 +21,7 @@ import {
 import { db } from "../lib/db";
 import { queueClassAttendance } from "../lib/syncQueue";
 import { scheduleSync } from "../lib/sync";
-import { Bell, BellOff } from "lucide-react";
+import { Bell, BellOff, MessageSquarePlus } from "lucide-react";
 import {
   disablePush,
   enablePush,
@@ -196,26 +197,87 @@ export function Registration({ profile }: { profile: Profile }) {
   );
 }
 
+interface FAQTurn {
+  question: string;
+  answer: FAQAnswer;
+}
+
 export function FAQ({ profile }: { profile: Profile }) {
   const [question, setQuestion] = useState("");
-  const [answer, setAnswer] = useState<Awaited<ReturnType<typeof askFAQ>>>();
+  const [turns, setTurns] = useState<FAQTurn[]>([]);
+  const [conversationId, setConversationId] = useState<string>();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const reset = () => {
+    setTurns([]);
+    setConversationId(undefined);
+    setError("");
+  };
   return (
     <section>
-      <h2>Hỏi đáp học vụ</h2>
-      <p className="help">
-        Tra cứu quy chế và hướng dẫn học tập từ kho tài liệu của trường.
-      </p>
+      <div className="section-heading">
+        <div>
+          <h2>Hỏi đáp học vụ</h2>
+          <p className="help">
+            Tra cứu quy chế và hướng dẫn học tập từ kho tài liệu của trường. Có
+            thể hỏi tiếp, trợ lý nhớ vài câu gần nhất.
+          </p>
+        </div>
+        {turns.length > 0 && (
+          <button
+            className="secondary icon-button"
+            onClick={reset}
+            disabled={busy}
+          >
+            <MessageSquarePlus />
+            Hội thoại mới
+          </button>
+        )}
+      </div>
+      {turns.length > 0 && (
+        <ol className="faq-thread" aria-label="Các câu đã hỏi">
+          {turns.map((turn, i) => (
+            <li key={i} className="response">
+              <p className="faq-question">{turn.question}</p>
+              <p className="prewrap">{turn.answer.answer}</p>
+              {turn.answer.sources?.length ? (
+                <>
+                  <h3>Nguồn tham khảo</h3>
+                  <ul>
+                    {turn.answer.sources.map((c, j) => (
+                      <li key={j}>{c.title}</li>
+                    ))}
+                  </ul>
+                </>
+              ) : null}
+              {turn.answer.needsEscalation && (
+                <p className="help">
+                  Cần xác nhận thêm với cố vấn học tập trước khi thực hiện.
+                </p>
+              )}
+            </li>
+          ))}
+        </ol>
+      )}
+      {busy && <Loading />}
       <form
         className="service-form"
         onSubmit={async (e) => {
           e.preventDefault();
+          const asked = question.trim();
           setBusy(true);
           setError("");
-          setAnswer(undefined);
           try {
-            setAnswer(await askFAQ(question.trim(), profile.studentId));
+            const answer = await askFAQ(asked, profile.studentId, conversationId);
+            // Mã đổi nghĩa là máy chủ đã mở hội thoại mới (hết hạn hoặc không hợp lệ).
+            const sameConversation =
+              !!conversationId && answer.conversationId === conversationId;
+            setTurns((prev) => [
+              ...(sameConversation ? prev : []),
+              { question: asked, answer },
+            ]);
+            setConversationId(answer.conversationId);
+            setQuestion("");
           } catch (e) {
             setError(message(e));
           } finally {
@@ -224,13 +286,17 @@ export function FAQ({ profile }: { profile: Profile }) {
         }}
       >
         <label className="field">
-          Câu hỏi
+          {turns.length ? "Câu hỏi tiếp theo" : "Câu hỏi"}
           <textarea
             required
             maxLength={4000}
             value={question}
             onChange={(e) => setQuestion(e.target.value)}
-            placeholder="Điều kiện đăng ký học phần là gì?"
+            placeholder={
+              turns.length
+                ? "Còn học kỳ hè thì sao?"
+                : "Điều kiện đăng ký học phần là gì?"
+            }
           />
         </label>
         <button className="primary" disabled={busy || !question.trim()}>
@@ -238,29 +304,7 @@ export function FAQ({ profile }: { profile: Profile }) {
         </button>
       </form>
       <ErrorNotice error={error} />
-      {busy ? (
-        <Loading />
-      ) : answer ? (
-        <article className="response">
-          <h3>Phản hồi</h3>
-          <p className="prewrap">{answer.answer}</p>
-          {answer.sources?.length ? (
-            <>
-              <h3>Nguồn tham khảo</h3>
-              <ul>
-                {answer.sources.map((c, i) => (
-                  <li key={i}>{c.title}</li>
-                ))}
-              </ul>
-            </>
-          ) : null}
-          {answer.needsEscalation && (
-            <p className="help">
-              Cần xác nhận thêm với cố vấn học tập trước khi thực hiện.
-            </p>
-          )}
-        </article>
-      ) : (
+      {!busy && turns.length === 0 && (
         <p className="help">Chưa có phản hồi. Nhập câu hỏi để bắt đầu.</p>
       )}
     </section>

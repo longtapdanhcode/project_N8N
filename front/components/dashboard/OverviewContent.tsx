@@ -54,6 +54,9 @@ export const OverviewContent: React.FC<OverviewContentProps> = ({ kpis }) => {
     suggested_actions?: string[];
     dispatched_to_n8n?: boolean;
   } | null>(null);
+  // Hội thoại hiện tại: backend dùng vài câu gần nhất làm ngữ cảnh cho câu hỏi tiếp theo.
+  const [conversationId, setConversationId] = useState<string>();
+  const [askedQuestions, setAskedQuestions] = useState<string[]>([]);
 
   // Toast
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
@@ -100,8 +103,15 @@ export const OverviewContent: React.FC<OverviewContentProps> = ({ kpis }) => {
     setAiLoading(true);
     setAiResponse(null);
     try {
-      const res = await askAcademicAI(aiQuestion);
+      const question = aiQuestion.trim();
+      const res = await askAcademicAI(question, conversationId);
       setAiResponse(res);
+      if (res.conversationId) {
+        setConversationId(res.conversationId);
+        setAskedQuestions((prev) =>
+          res.conversationId === conversationId ? [...prev, question] : [question],
+        );
+      }
     } catch {
       showToast('Có lỗi xảy ra khi truy vấn trợ lý AI!', 'error');
     } finally {
@@ -344,8 +354,33 @@ export const OverviewContent: React.FC<OverviewContentProps> = ({ kpis }) => {
             </div>
 
             <div className="flex-1 p-4 space-y-3 overflow-y-auto max-h-72">
+              {/* Earlier questions in this conversation */}
+              {!aiResponse && !aiLoading && askedQuestions.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs text-slate-500">
+                    Đang hỏi tiếp. Trợ lý nhớ {Math.min(askedQuestions.length, 4)} câu gần nhất:
+                  </p>
+                  <ul className="space-y-1 text-xs text-slate-700">
+                    {askedQuestions.slice(-4).map((q, i) => (
+                      <li key={i} className="px-3 py-2 bg-slate-50 rounded-lg border border-slate-200">
+                        {q}
+                      </li>
+                    ))}
+                  </ul>
+                  <button
+                    onClick={() => {
+                      setConversationId(undefined);
+                      setAskedQuestions([]);
+                    }}
+                    className="text-xs text-slate-500 hover:text-slate-800 font-semibold cursor-pointer"
+                  >
+                    Bắt đầu hội thoại mới
+                  </button>
+                </div>
+              )}
+
               {/* Example prompts */}
-              {!aiResponse && !aiLoading && (
+              {!aiResponse && !aiLoading && askedQuestions.length === 0 && (
                 <div className="space-y-2">
                   <p className="text-xs text-slate-500">Một số câu hỏi bạn có thể hỏi:</p>
                   {[
@@ -420,15 +455,30 @@ export const OverviewContent: React.FC<OverviewContentProps> = ({ kpis }) => {
                     </div>
                   )}
 
-                  <button
-                    onClick={() => {
-                      setAiResponse(null);
-                      setAiQuestion('');
-                    }}
-                    className="text-xs text-blue-600 hover:text-blue-800 font-semibold cursor-pointer"
-                  >
-                    Hỏi câu khác →
-                  </button>
+                  <div className="flex items-center gap-4">
+                    <button
+                      onClick={() => {
+                        setAiResponse(null);
+                        setAiQuestion('');
+                      }}
+                      className="text-xs text-blue-600 hover:text-blue-800 font-semibold cursor-pointer"
+                    >
+                      Hỏi tiếp →
+                    </button>
+                    {conversationId && (
+                      <button
+                        onClick={() => {
+                          setAiResponse(null);
+                          setAiQuestion('');
+                          setConversationId(undefined);
+                          setAskedQuestions([]);
+                        }}
+                        className="text-xs text-slate-500 hover:text-slate-800 font-semibold cursor-pointer"
+                      >
+                        Hội thoại mới
+                      </button>
+                    )}
+                  </div>
                 </div>
               )}
             </div>

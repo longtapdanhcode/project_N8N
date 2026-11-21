@@ -1,5 +1,9 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
-import { GeminiService, StructuredAiResponse } from './gemini.service';
+import {
+  ConversationTurn,
+  GeminiService,
+  StructuredAiResponse,
+} from './gemini.service';
 import {
   SupabaseService,
   HybridSearchResult,
@@ -27,7 +31,10 @@ export class AiService {
    * @param question The student's academic question
    * @returns StructuredAiResponse object
    */
-  async askAssistant(question: string): Promise<StructuredAiResponse> {
+  async askAssistant(
+    question: string,
+    options: { history?: ConversationTurn[]; searchQuery?: string } = {},
+  ): Promise<StructuredAiResponse> {
     if (!question || question.trim() === '') {
       const errorMsg = 'Câu hỏi không được để trống.';
       this.logger.error(errorMsg);
@@ -37,7 +44,10 @@ export class AiService {
     this.logger.log(`[RAG Pipeline] Processing student question: "${question}"`);
 
     // 1. Hybrid search to get top matching documents
-    const matchedDocs = await this.hybridSearch(question, { matchCount: 5 });
+    const matchedDocs = await this.hybridSearch(
+      options.searchQuery?.trim() || question,
+      { matchCount: 5 },
+    );
     this.logger.log(
       `[RAG Pipeline] Retrieved ${matchedDocs.length} matching documents from Supabase.`,
     );
@@ -51,6 +61,7 @@ export class AiService {
     const response = await this.geminiService.generateStructuredResponse(
       question,
       contextDocs,
+      options.history,
     );
 
     this.logger.log(

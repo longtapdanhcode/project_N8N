@@ -1,4 +1,8 @@
 import { BadRequestException } from '@nestjs/common';
+import {
+  searchQueryFor,
+  type FaqSession,
+} from './modules/faq-memory/faq-memory.service';
 
 export type AskerRole = 'student' | 'teacher';
 
@@ -44,11 +48,22 @@ export function readAskerIdentity(
   ) as AskerIdentity;
 }
 
-/** Payload gửi workflow FAQ; studentId giữ để tương thích workflow hiện có. */
-export function toFaqPayload(question: string, identity: AskerIdentity) {
+/**
+ * Payload gửi workflow FAQ; studentId giữ để tương thích workflow hiện có.
+ * history và searchQuery là tùy chọn: workflow cũ bỏ qua thì vẫn chạy như trước.
+ */
+export function toFaqPayload(
+  question: string,
+  identity: AskerIdentity,
+  session?: FaqSession | null,
+) {
+  const history = session?.history ?? [];
   return {
     question,
     ...identity,
     ...(identity.userId ? { studentId: identity.userId } : {}),
+    ...(session ? { conversationId: session.conversationId } : {}),
+    history,
+    searchQuery: searchQueryFor(question, history),
   };
 }

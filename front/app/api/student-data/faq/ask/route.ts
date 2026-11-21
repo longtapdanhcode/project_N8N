@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { COOKIE, readSession } from "@/lib/session";
 import { proxyBackend } from "@/lib/backend";
+import { conversationField } from "@/lib/faq";
 
 export async function POST(request: NextRequest) {
   const session = readSession(request.cookies.get(COOKIE)?.value);
@@ -26,6 +27,7 @@ export async function POST(request: NextRequest) {
     body: JSON.stringify({
       question: body.question.trim(),
       studentId: session.studentId || session.username,
+      ...conversationField(body.conversationId),
     }),
   });
 }

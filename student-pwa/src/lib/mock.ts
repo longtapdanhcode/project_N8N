@@ -167,6 +167,10 @@ export function mockApiPlugin(base: string): Plugin {
           const body = JSON.parse(raw || "{}");
           if (path.endsWith("/faq/ask")) {
             reply({
+              conversationId:
+                typeof body.conversationId === "string"
+                  ? body.conversationId
+                  : crypto.randomUUID(),
               answer:
                 "Phản hồi minh họa: hãy kiểm tra môn tiên quyết và chọn lớp còn chỗ tại mục Đăng ký học phần.",
               sources: [

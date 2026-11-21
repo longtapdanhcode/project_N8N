@@ -53,7 +53,7 @@ export function DocumentsContent() {
     <div className="service-page">
       <h2>Kho tài liệu học vụ</h2>
       <p>
-        Tài liệu nguồn cho trợ lý hỏi đáp. Chỉ nhập văn bản hoặc tệp .txt, .md.
+        Tài liệu nguồn cho trợ lý hỏi đáp. Nhập văn bản hoặc tải tệp .pdf, .docx, .txt, .md (tối đa 10 MB). PDF bản scan cần nhận dạng chữ trước.
       </p>
       <form
         onSubmit={async (e) => {
@@ -64,9 +64,10 @@ export function DocumentsContent() {
           try {
             if (
               file &&
-              (!/\.(txt|md)$/i.test(file.name) || file.size > 5 * 1024 * 1024)
+              (!/\.(txt|md|pdf|docx)$/i.test(file.name) ||
+                file.size > 10 * 1024 * 1024)
             )
-              throw new Error("Chọn tệp .txt hoặc .md không quá 5 MB.");
+              throw new Error("Chọn tệp .pdf, .docx, .txt hoặc .md không quá 10 MB.");
             const result = await ingestDocument(
               { title: title.trim(), content: content.trim(), category },
               file,
@@ -109,11 +110,11 @@ export function DocumentsContent() {
           </select>
         </label>
         <label>
-          Tệp văn bản (tùy chọn)
+          Tệp tài liệu (tùy chọn)
           <input
             ref={fileInput}
             type="file"
-            accept=".txt,.md,text/plain,text/markdown"
+            accept=".pdf,.docx,.txt,.md,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/markdown"
             onChange={(e) => setFile(e.target.files?.[0])}
           />
         </label>

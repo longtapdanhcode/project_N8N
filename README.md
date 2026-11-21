@@ -177,7 +177,8 @@ Backend sẽ khởi chạy tại: `http://localhost:3001`.
 
 | Method | Endpoint | Mô tả | Payload mẫu |
 | :--- | :--- | :--- | :--- |
-| **POST** | `/ai/ask` | **Hỏi đáp học vụ thông minh qua AI RAG** (trả về JSON chuẩn Structured Output) | `{"question": "Sinh viên vắng quá 20% số tiết có được thi không?"}` |
+| **POST** | `/ai/ask` | **Hỏi đáp học vụ thông minh qua AI RAG** (trả về JSON chuẩn Structured Output). Gửi lại `conversationId` từ câu trả lời trước để hỏi tiếp | `{"question": "Sinh viên vắng quá 20% số tiết có được thi không?", "conversationId": "<tùy chọn>"}` |
+| **POST** | `/documents/ingest-file` | Nạp tệp .pdf, .docx, .txt, .md (tối đa 10 MB) vào kho tài liệu | multipart: `file`, `title`, `category` |
 | **GET** | `/test-hybrid-search` | Test truy vấn Hybrid Search qua Query Params | Query: `?query=Quy chế học vụ` |
 | **POST** | `/test-hybrid-search` | Test truy vấn Hybrid Search qua Request Body | `{"query": "Quy chế học vụ VKU"}` |
 | **POST** | `/test-webhook` | Gửi dữ liệu test ký HMAC-SHA256 sang webhook n8n | _(Không bắt buộc body)_ |

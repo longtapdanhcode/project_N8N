@@ -16,6 +16,7 @@ import { StudentModule } from './modules/student/student.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { SyncModule } from './modules/sync/sync.module';
 import { FaqController } from './faq.controller';
+import { FaqMemoryModule } from './modules/faq-memory/faq-memory.module';
 
 @Module({
   imports: [
@@ -54,6 +55,7 @@ import { FaqController } from './faq.controller';
     StudentModule,
     AuthModule,
     SyncModule,
+    FaqMemoryModule,
   ],
   controllers: [AppController, FaqController],
   providers: [AppService],

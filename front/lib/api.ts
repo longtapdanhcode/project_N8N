@@ -214,7 +214,7 @@ export function ingestDocument(input: {title: string; content: string; category:
 /**
  * Call backend AI RAG assistant (/api/ai/ask) with n8n workflow integration
  */
-export async function askAcademicAI(question: string) {
+export async function askAcademicAI(question: string, conversationId?: string) {
   try {
     const endpoint =
       typeof window !== 'undefined'
@@ -224,7 +224,7 @@ export async function askAcademicAI(question: string) {
     const response = await fetch(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ question }),
+      body: JSON.stringify({ question, ...(conversationId ? { conversationId } : {}) }),
     });
 
     if (response.ok) {
@@ -247,6 +247,8 @@ export async function askAcademicAI(question: string) {
           'Liên hệ Cố vấn học tập',
         ],
         dispatched_to_n8n: Boolean(data.dispatched_to_n8n),
+        conversationId:
+          typeof data.conversationId === 'string' ? data.conversationId : undefined,
       };
     }
   } catch (error) {

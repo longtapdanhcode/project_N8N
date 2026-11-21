@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { GeminiService } from '../ai/gemini.service';
 import { SupabaseService } from '../ai/supabase.service';
 import { TextSplitterService } from './text-splitter.service';
+import { decodeFilename, extractText } from './file-text';
 
 export class IngestTextDto {
   title: string;
@@ -115,7 +116,7 @@ export class DocumentService {
   }
 
   /**
-   * Ingests an uploaded file (txt, md, etc.) into the AI Knowledge Base.
+   * Ingests an uploaded file (.txt, .md, .pdf, .docx) into the AI Knowledge Base.
    *
    * @param file Uploaded file from Multer
    * @param options Optional title, category, and metadata overrides
@@ -125,22 +126,22 @@ export class DocumentService {
     file: Express.Multer.File,
     options?: { title?: string; category?: string; metadata?: Record<string, any> },
   ): Promise<IngestResult> {
-    if (!file || !file.buffer) {
+    if (!file || !file.buffer?.length) {
       throw new BadRequestException('Vui lòng tải lên một file hợp lệ.');
     }
 
-    const content = file.buffer.toString('utf-8');
-    if (!content || content.trim() === '') {
-      throw new BadRequestException('File tải lên không có nội dung văn bản.');
-    }
+    const filename = decodeFilename(file.originalname || '');
+    const { kind, text: content, pages } = await extractText(filename, file.buffer);
 
-    const title = options?.title?.trim() || file.originalname || 'Tài liệu không tên';
+    const title =
+      options?.title?.trim() || filename.replace(/\.[^.]+$/, '') || 'Tài liệu không tên';
     const category = options?.category?.trim() || 'uploaded_file';
 
     const fileMetadata = {
       ...options?.metadata,
-      original_filename: file.originalname,
-      mimetype: file.mimetype,
+      original_filename: filename,
+      file_type: kind,
+      ...(pages ? { page_count: pages } : {}),
       size_bytes: file.size,
     };
 

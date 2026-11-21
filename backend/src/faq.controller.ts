@@ -9,12 +9,14 @@ import { ConfigService } from '@nestjs/config';
 import { WebhookService } from './modules/webhook/webhook.service';
 import { requiredText } from './modules/assignment/submission.service';
 import { readAskerIdentity, toFaqPayload } from './faq-identity';
+import { FaqMemoryService } from './modules/faq-memory/faq-memory.service';
 
 @Controller('faq')
 export class FaqController {
   constructor(
     private readonly webhook: WebhookService,
     private readonly config: ConfigService,
+    private readonly memory: FaqMemoryService,
   ) {}
 
   @Post('ask')
@@ -28,8 +30,9 @@ export class FaqController {
     const url = this.config.get<string>('N8N_FAQ_URL');
     if (!url) throw new BadGatewayException('Thiếu N8N_FAQ_URL');
 
+    const session = await this.memory.open(identity, body?.conversationId);
     const result = await this.webhook.sendToN8n(
-      toFaqPayload(question, identity),
+      toFaqPayload(question, identity, session),
       'FAQ_QUESTION',
       url,
       0,
@@ -55,6 +58,7 @@ export class FaqController {
       : Array.isArray(d.citations)
         ? d.citations
         : ['Quy chế học vụ VKU'];
+    await this.memory.record(session, identity, question, d.answer);
 
     return {
       answer: d.answer,
@@ -71,6 +75,7 @@ export class FaqController {
       dispatched_to_n8n: true,
       studentId,
       role,
+      ...(session ? { conversationId: session.conversationId } : {}),
     };
   }
 }
