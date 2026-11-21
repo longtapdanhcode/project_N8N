@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Headers,
+  Param,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { CourseRegistrationService } from './course-registration.service';
 import { CourseRegistrationDto } from './dto/course-registration.dto';
 import { TimetableService } from './timetable.service';
@@ -28,8 +36,11 @@ export class CourseRegistrationController {
   constructor(private readonly registrationService: CourseRegistrationService) {}
 
   @Post('register')
-  async registerCourse(@Body() body: CourseRegistrationDto) {
-    return await this.registrationService.registerCourse(body);
+  async registerCourse(
+    @Body() body: CourseRegistrationDto,
+    @Headers('idempotency-key') idempotencyKey?: string,
+  ) {
+    return await this.registrationService.registerCourse(body, idempotencyKey);
   }
 }
 

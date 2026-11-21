@@ -21,6 +21,10 @@ export interface AcademicWarningScanResult {
   }>;
 }
 
+/** Số cảnh báo gửi cùng lúc và thời gian tối đa cho mỗi cảnh báo. */
+const WARNING_CONCURRENCY = 5;
+const WARNING_DEADLINE_MS = 15000;
+
 @Injectable()
 export class AcademicWarningService {
   private readonly logger = new Logger(AcademicWarningService.name);
@@ -172,45 +176,25 @@ export class AcademicWarningService {
       `Dispatch limit set to ${dispatchLimit}. Dispatching webhook for ${targetStudents.length}/${violations.length} students.`,
     );
 
+    // Gửi song song có giới hạn: lần lượt từng em thì vài lần n8n chậm đã vượt
+    // thời gian cổng 3000 chờ (130 giây).
+    const scannedAt = new Date().toISOString();
+    const scanDay = scannedAt.slice(0, 10);
     let dispatchedCount = 0;
-
-    for (const student of targetStudents) {
-      const gpa = Number((student.gpa ?? 0).toFixed(2));
-      const absentRate = Number((student.absent_rate ?? 0).toFixed(2));
-      const failedCredits = student.failed_credits ?? 0;
-
-      let warningTier = 'TIER_1';
-      if (gpa < 1.0 || absentRate >= 40 || failedCredits >= 16) {
-        warningTier = 'TIER_3';
-      } else if (gpa < 1.5 || absentRate >= 30 || failedCredits >= 12) {
-        warningTier = 'TIER_2';
-      }
-
-      const payload = {
-        student_id: student._id,
-        full_name: student.full_name,
-        student_email: student.student_email,
-        advisor_email: student.advisor_email,
-        gpa,
-        absent_rate: absentRate,
-        failed_credits: failedCredits,
-        warning_tier: warningTier,
-        scanned_at: new Date().toISOString(),
-      };
-
-      try {
-        const dispatchRes = await this.webhookService.sendToN8n(
-          payload,
-          'ACADEMIC_WARNING_ALERT',
-          n8nWarningUrl,
-        );
-        if (dispatchRes.success) {
+    let next = 0;
+    const worker = async () => {
+      while (next < targetStudents.length) {
+        const student = targetStudents[next++];
+        if (await this.dispatchWarning(student, n8nWarningUrl, scannedAt, scanDay))
           dispatchedCount++;
-        }
-      } catch (err: any) {
-        this.logger.warn(`Failed to dispatch alert for student ${student._id}: ${err.message}`);
       }
-    }
+    };
+    await Promise.all(
+      Array.from(
+        { length: Math.min(WARNING_CONCURRENCY, targetStudents.length) },
+        worker,
+      ),
+    );
 
     return {
       success: true,
@@ -218,5 +202,55 @@ export class AcademicWarningService {
       dispatched_count: dispatchedCount,
       violations: mappedViolations,
     };
+  }
+
+  /** Gửi một cảnh báo; true nếu n8n nhận. */
+  private async dispatchWarning(
+    student: any,
+    n8nWarningUrl: string,
+    scannedAt: string,
+    scanDay: string,
+  ): Promise<boolean> {
+    const gpa = Number((student.gpa ?? 0).toFixed(2));
+    const absentRate = Number((student.absent_rate ?? 0).toFixed(2));
+    const failedCredits = student.failed_credits ?? 0;
+
+    let warningTier = 'TIER_1';
+    if (gpa < 1.0 || absentRate >= 40 || failedCredits >= 16) {
+      warningTier = 'TIER_3';
+    } else if (gpa < 1.5 || absentRate >= 30 || failedCredits >= 12) {
+      warningTier = 'TIER_2';
+    }
+
+    const payload = {
+      student_id: student._id,
+      full_name: student.full_name,
+      student_email: student.student_email,
+      advisor_email: student.advisor_email,
+      gpa,
+      absent_rate: absentRate,
+      failed_credits: failedCredits,
+      warning_tier: warningTier,
+      scanned_at: scannedAt,
+    };
+
+    try {
+      // Cùng mã cho một em trong một ngày: quét lại trong ngày thì n8n bỏ trùng được.
+      const dispatchRes = await this.webhookService.sendToN8n(
+        payload,
+        'ACADEMIC_WARNING_ALERT',
+        n8nWarningUrl,
+        undefined,
+        undefined,
+        {
+          deliveryId: `academic-warning:${student._id}:${scanDay}`,
+          deadlineMs: WARNING_DEADLINE_MS,
+        },
+      );
+      return dispatchRes.success;
+    } catch (err: any) {
+      this.logger.warn(`Failed to dispatch alert for student ${student._id}: ${err.message}`);
+      return false;
+    }
   }
 }

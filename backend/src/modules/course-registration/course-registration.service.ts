@@ -18,7 +18,7 @@ export class CourseRegistrationService {
    * Forwards course registration request to n8n workflow with HMAC authentication,
    * returning registration outcome (enrolled / conflict / prerequisite error) to client.
    */
-  async registerCourse(dto: CourseRegistrationDto) {
+  async registerCourse(dto: CourseRegistrationDto, idempotencyKey?: string) {
     this.logger.log(
       `Forwarding course registration for student "${dto.student_id}" -> section "${dto.class_section_id}"...`,
     );
@@ -32,6 +32,9 @@ export class CourseRegistrationService {
       dto,
       'COURSE_REGISTRATION',
       n8nRegistrationUrl,
+      undefined,
+      undefined,
+      { deliveryId: idempotencyKey },
     );
 
     if (deliveryResult.success && deliveryResult.data) {
