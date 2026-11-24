@@ -6,8 +6,11 @@ import { Thesis } from '@/types';
 import { DataTable, DataTableToolbar } from '@/components/table';
 import { Badge } from '@/components/ui/Badge';
 import { ThesisDetailModal } from '@/components/dashboard/ThesisDetailModal';
+import { Toast } from '@/components/ui/Toast';
 import { exportThesesToCSV } from '@/lib/export';
-import { CheckCircle2 } from 'lucide-react';
+import { DEFENSE_STATUS } from '@/lib/thesis-status';
+import { FileSearch } from 'lucide-react';
+
 
 interface ProjectsTableClientProps {
   initialData: Thesis[];
@@ -42,76 +45,75 @@ export const ProjectsTableClient: React.FC<ProjectsTableClientProps> = ({
 
   const handleExport = () => {
     exportThesesToCSV(theses);
-    showToast(`Đã xuất ${theses.length} đề tài đồ án ra file CSV!`);
+    showToast(`Đã xuất ${theses.length} đề tài của trang này ra tệp CSV.`);
   };
 
   const handleThesisUpdated = (updatedThesis: Thesis) => {
     setTheses((prev) =>
       prev.map((t) => (t._id === updatedThesis._id ? updatedThesis : t))
     );
-    showToast(`Đã cập nhật tiến độ đề tài "${updatedThesis.title}" thành công!`);
+    showToast(`Đã cập nhật mốc của đề tài "${updatedThesis.title}".`);
   };
   const columns = useMemo<ColumnDef<Thesis>[]>(
     () => [
       {
-        id: 'studentId',
-        accessorKey: 'studentId',
-        header: 'MSSV',
-        cell: ({ row }) => (
-          <span className="font-mono font-bold text-slate-900">
-            {row.original.studentId}
-          </span>
-        ),
-      },
-      {
         id: 'title',
         accessorKey: 'title',
-        header: 'Tên đề tài đồ án',
+        header: 'Đề tài',
         cell: ({ row }) => (
-          <div className="flex flex-col min-w-0 max-w-md">
-            <span className="font-semibold text-slate-900 leading-snug">
-              {row.original.title}
-            </span>
-            <span className="text-[11px] text-slate-400 mt-0.5 truncate">
-              {row.original.department}
-            </span>
+          <div className="flex min-w-0 max-w-md flex-col">
+            <span className="font-semibold leading-snug text-[var(--text)]">{row.original.title}</span>
+            {row.original.department && (
+              <span className="mt-0.5 truncate text-[11px] text-[var(--muted)]">{row.original.department}</span>
+            )}
           </div>
         ),
       },
       {
         id: 'studentName',
         accessorKey: 'studentName',
-        header: 'Sinh viên thực hiện',
+        header: 'Sinh viên / MSSV',
         cell: ({ row }) => (
-          <span className="font-semibold text-slate-800">
-            {row.original.studentName}
-          </span>
+          <div className="flex min-w-0 flex-col">
+            <span className="font-medium leading-snug text-[var(--text)]">
+              {row.original.studentName || <span className="text-[var(--muted)]">Chưa có tên</span>}
+            </span>
+            <span className="mt-0.5 font-mono text-[11px] text-[var(--muted)]">{row.original.studentId}</span>
+          </div>
         ),
       },
       {
         id: 'advisorName',
         accessorKey: 'advisorName',
         header: 'GVHD',
-        cell: ({ row }) => (
-          <span className="text-slate-700 font-medium">
-            {row.original.advisorName}
-          </span>
-        ),
+        cell: ({ row }) =>
+          row.original.advisorName ? (
+            <span className="text-[var(--text)]">{row.original.advisorName}</span>
+          ) : (
+            <span className="whitespace-nowrap text-[var(--muted)]">Chưa phân công</span>
+          ),
       },
       {
         id: 'progressPercent',
         accessorKey: 'progressPercent',
-        header: () => <div className="text-right">Tiến độ hoàn thành</div>,
+        header: () => <div className="text-right">Tiến độ</div>,
         cell: ({ row }) => {
-          const pct = row.original.progressPercent;
+          const pct = Math.max(0, Math.min(100, row.original.progressPercent));
+          const done = row.original.milestones.filter((m) => m.status === 'COMPLETED').length;
           return (
-            <div className="text-right tabular-nums">
-              <span className="font-bold text-blue-600 text-xs">{pct}%</span>
-              <div className="w-20 h-1.5 rounded-full bg-slate-100 overflow-hidden ml-auto mt-1">
-                <div
-                  className="h-full bg-blue-600 rounded-full"
-                  style={{ width: `${pct}%` }}
-                />
+            <div className="flex flex-col items-end gap-1 tabular-nums">
+              <span className="whitespace-nowrap font-mono text-xs text-[var(--text)]">
+                {done}/{row.original.milestones.length} mốc · {pct}%
+              </span>
+              <div
+                className="h-1 w-20 overflow-hidden rounded-full bg-[var(--border)]"
+                role="progressbar"
+                aria-valuenow={pct}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-label="Tiến độ đồ án"
+              >
+                <div className="h-full bg-[var(--primary)]" style={{ width: `${pct}%` }} />
               </div>
             </div>
           );
@@ -120,12 +122,12 @@ export const ProjectsTableClient: React.FC<ProjectsTableClientProps> = ({
       {
         id: 'defenseStatus',
         accessorKey: 'defenseStatus',
-        header: 'Thẩm định bảo vệ',
+        header: 'Bảo vệ',
         cell: ({ row }) => {
-          const isEligible = row.original.defenseStatus === 'ELIGIBLE';
+          const st = DEFENSE_STATUS[row.original.defenseStatus ?? 'NOT_ELIGIBLE'] ?? DEFENSE_STATUS.NOT_ELIGIBLE;
           return (
-            <Badge variant={isEligible ? 'success' : 'neutral'} dot size="sm">
-              {isEligible ? 'ĐỦ ĐIỀU KIỆN BV' : 'ĐANG THỰC HIỆN'}
+            <Badge variant={st.variant} size="sm">
+              {st.label}
             </Badge>
           );
         },
@@ -141,9 +143,11 @@ export const ProjectsTableClient: React.FC<ProjectsTableClientProps> = ({
                 e.stopPropagation();
                 setSelectedThesis(row.original);
               }}
-              className="text-xs font-semibold text-blue-600 hover:text-blue-800 hover:underline cursor-pointer"
+              aria-label={`Xem các mốc của đề tài ${row.original.title}`}
+              className="inline-flex min-h-8 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-md px-2 text-xs font-medium text-[var(--primary)] hover:bg-[var(--primary-soft)]"
             >
-              Xem mốc
+              <FileSearch className="h-3.5 w-3.5" strokeWidth={1.5} />
+              <span>Xem mốc</span>
             </button>
           </div>
         ),
@@ -154,16 +158,10 @@ export const ProjectsTableClient: React.FC<ProjectsTableClientProps> = ({
 
   return (
     <>
-      {/* Toast Notification */}
-      {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-xl border border-slate-700 flex items-center gap-3 text-xs animate-in slide-in-from-bottom-2 duration-200">
-          <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
-          <span>{toastMessage}</span>
-        </div>
-      )}
+      {toastMessage && <Toast message={toastMessage} />}
 
       <DataTableToolbar
-        searchPlaceholder="Tìm theo tên đề tài, MSSV, sinh viên, GVHD..."
+        searchPlaceholder="Tìm theo đề tài, MSSV, sinh viên hoặc GVHD"
         showClassFilter={false}
         showStatusFilter={true}
         statusOptions={[
@@ -181,12 +179,11 @@ export const ProjectsTableClient: React.FC<ProjectsTableClientProps> = ({
         page={page}
         pageSize={pageSize}
         totalPages={totalPages}
-        emptyTitle="Không tìm thấy đề tài nào"
-        emptyDescription="Thử thay đổi từ khóa tìm kiếm đề tài hoặc người hướng dẫn."
+        emptyTitle="Không có đề tài phù hợp"
+        emptyDescription="Thử bỏ từ khóa tìm kiếm hoặc chọn trạng thái khác."
         onRowClick={(thesis) => setSelectedThesis(thesis)}
       />
 
-      {/* Thesis Detail Modal */}
       <ThesisDetailModal
         thesis={selectedThesis}
         onClose={() => setSelectedThesis(null)}

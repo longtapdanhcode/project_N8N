@@ -6,6 +6,7 @@ import {
   ingestDocument,
   type KnowledgeDocument,
 } from "@/lib/api";
+import { Skeleton } from "@/components/ui/Skeleton";
 
 export function DocumentsContent() {
   const [documents, setDocuments] = useState<KnowledgeDocument[]>([]);
@@ -51,7 +52,6 @@ export function DocumentsContent() {
   }, []);
   return (
     <div className="service-page">
-      <h2>Kho tài liệu học vụ</h2>
       <p>
         Tài liệu nguồn cho trợ lý hỏi đáp. Nhập văn bản hoặc tải tệp .pdf, .docx, .txt, .md (tối đa 10 MB). PDF bản scan cần nhận dạng chữ trước.
       </p>
@@ -146,8 +146,10 @@ export function DocumentsContent() {
         </button>
       </div>
       {loading ? (
-        <div className="service-loading" role="status">
-          Đang tải tài liệu…
+        <div className="space-y-3" role="status" aria-label="Đang tải tài liệu">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-10 w-full" />
+          ))}
         </div>
       ) : !documents.length ? (
         <p>Chưa có tài liệu ở trang này.</p>
@@ -157,8 +159,8 @@ export function DocumentsContent() {
             <details key={d.id}>
               <summary>{d.title}</summary>
               <p className="whitespace-pre-wrap">{d.content}</p>
-              <small>
-                {new Date(d.created_at).toLocaleDateString("vi-VN")}
+              <small className="tabular-nums">
+                Nhập ngày {new Date(d.created_at).toLocaleDateString("vi-VN")}
               </small>
             </details>
           ))}
@@ -171,7 +173,7 @@ export function DocumentsContent() {
         >
           Trang trước
         </button>
-        <span>Trang {offset / 20 + 1}</span>
+        <span className="font-mono tabular-nums">Trang {offset / 20 + 1}</span>
         <button
           disabled={loading || documents.length < 20}
           onClick={() => void load(offset + 20)}

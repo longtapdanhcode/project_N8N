@@ -12,11 +12,7 @@ export default async function OverviewPage() {
 
   return (
     <DashboardShell
-      activeTitle="Tổng quan học vụ & Báo cáo KPI"
-      badgeCounts={{
-        attendanceWarning: kpis.examProhibitedCount,
-        thesisActive: kpis.totalTheses,
-      }}
+      activeTitle="Tổng quan"
     >
       <OverviewContent kpis={kpis} />
     </DashboardShell>

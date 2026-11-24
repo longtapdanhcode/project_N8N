@@ -13,22 +13,7 @@ import {
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Skeleton } from '@/components/ui/Skeleton';
-import {
-  Users,
-  AlertTriangle,
-  GraduationCap,
-  BookOpen,
-  CalendarCheck2,
-  Sparkles,
-  Send,
-  CheckCircle2,
-  ShieldCheck,
-  Flame,
-  ArrowRight,
-  TrendingUp,
-  BarChart3,
-  Activity,
-} from 'lucide-react';
+import { AlertTriangle, ArrowRight, CheckCircle2, Send } from 'lucide-react';
 
 interface OverviewContentProps {
   kpis: DashboardKPIs;
@@ -67,10 +52,9 @@ export const OverviewContent: React.FC<OverviewContentProps> = ({ kpis }) => {
   };
 
   useEffect(() => {
-    getTopAttendanceViolators(5).then((data) => {
-      setTopViolators(data);
-      setViolatorsLoading(false);
-    });
+    getTopAttendanceViolators(5)
+      .then(setTopViolators)
+      .finally(() => setViolatorsLoading(false));
   }, []);
 
   const handleScanWarnings = async () => {
@@ -89,10 +73,7 @@ export const OverviewContent: React.FC<OverviewContentProps> = ({ kpis }) => {
     } catch (error: unknown) {
       setScanError(error instanceof Error ? error.message : 'Không quét được cảnh báo.');
       console.error('Lỗi khi quét cảnh báo học vụ:', error);
-      showToast(
-        'Lỗi kết nối máy chủ backend khi quét cảnh báo học vụ! Vui lòng thử lại.',
-        'error',
-      );
+      showToast('Không quét được cảnh báo học vụ. Vui lòng thử lại.', 'error');
     } finally {
       setIsScanning(false);
     }
@@ -115,7 +96,7 @@ export const OverviewContent: React.FC<OverviewContentProps> = ({ kpis }) => {
       }
     } catch (error) {
       showToast(
-        error instanceof RateLimitError ? error.message : 'Có lỗi xảy ra khi truy vấn trợ lý AI!',
+        error instanceof RateLimitError ? error.message : 'Trợ lý chưa trả lời được. Vui lòng thử lại.',
         'error',
       );
     } finally {
@@ -123,250 +104,286 @@ export const OverviewContent: React.FC<OverviewContentProps> = ({ kpis }) => {
     }
   };
 
+  const panel = 'rounded-lg border border-[var(--border)] bg-[var(--surface)]';
+  const panelHead = 'flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border)] px-4 py-3';
+  const textLink =
+    'inline-flex items-center gap-1 rounded-md text-xs font-medium text-[var(--primary)] hover:text-[var(--primary-hover)] cursor-pointer';
+  const plannedDispatch = scanResult ? Math.min(scanLimit, scanResult.total_violations) : 0;
+
+  const kpiCells: {
+    label: string;
+    value: number;
+    note: string;
+    tone?: 'warning' | 'danger';
+  }[] = [
+    { label: 'Tổng sinh viên', value: kpis.totalStudents, note: `${kpis.activeStudents} đang học` },
+    {
+      label: 'Cảnh báo điểm danh',
+      value: kpis.attendanceWarningCount,
+      note: 'Vắng từ 15% số tiết',
+      tone: 'warning',
+    },
+    {
+      label: 'Cấm thi',
+      value: kpis.examProhibitedCount,
+      note: 'Vắng trên 20% số tiết (Điều 14)',
+      tone: 'danger',
+    },
+    {
+      label: 'Đồ án tốt nghiệp',
+      value: kpis.totalTheses,
+      note: `${Math.round(kpis.completedMilestonesRate)}% mốc đã hoàn thành`,
+    },
+  ];
+
   return (
     <>
-      {/* Toast Notification */}
       {toast && (
         <div
-          className={`fixed bottom-6 right-6 z-50 px-4 py-3 rounded-xl shadow-xl border flex items-center gap-3 text-xs animate-in slide-in-from-bottom-2 duration-200 ${
+          role={toast.type === 'error' ? 'alert' : 'status'}
+          className={`fixed bottom-6 right-6 z-50 flex max-w-sm items-start gap-3 rounded-lg border bg-[var(--surface)] px-4 py-3 text-xs ${
             toast.type === 'error'
-              ? 'bg-rose-950 text-rose-100 border-rose-800'
-              : 'bg-slate-900 text-white border-slate-700'
+              ? 'border-[#59323e] text-[var(--danger)]'
+              : 'border-[var(--border)] text-[var(--text)]'
           }`}
         >
           {toast.type === 'error' ? (
-            <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+            <AlertTriangle className="mt-px h-4 w-4 shrink-0" strokeWidth={1.5} />
           ) : (
-            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+            <CheckCircle2 className="mt-px h-4 w-4 shrink-0 text-[var(--primary)]" strokeWidth={1.5} />
           )}
           <span>{toast.message}</span>
         </div>
       )}
 
-      <div className="space-y-6">
-        <div className="service-page flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <span className="text-xs text-[var(--muted)]">
-                Học kỳ 1 • 2026-2027
-              </span>
-            </div>
-            <h2 className="text-xl font-bold">Hệ thống Cố vấn Học vụ VKU AI</h2>
-            <p className="text-sm text-[var(--muted)]">
-              Theo dõi sinh viên, cảnh báo học vụ và tiến độ đồ án.
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Link href="/teacher/students">
-              <Button
-                variant="outline"
-                size="sm"
-                className="border-[var(--border)] text-[var(--primary)]"
-              >
-                Xem {kpis.totalStudents} sinh viên
-              </Button>
-            </Link>
-            <Button
-              type="button"
-              variant="white"
-              size="sm"
-              disabled={isScanning}
-              isLoading={isScanning}
-              onClick={handleScanWarnings}
+      <div className="space-y-6 text-xs">
+        {/* Số liệu học kỳ: mỗi ô có nhãn chữ, không chỉ dựa vào màu. */}
+        <dl className={`${panel} grid grid-cols-2 lg:grid-cols-4`}>
+          {kpiCells.map((cell, i) => (
+            <div
+              key={cell.label}
+              className={`p-4 ${i % 2 ? 'border-l border-[var(--border)]' : ''} ${
+                i >= 2 ? 'border-t border-[var(--border)] lg:border-t-0' : ''
+              } ${i === 2 ? 'lg:border-l' : ''} ${
+                cell.tone === 'warning'
+                  ? 'attendance-warning-card border-[var(--warning-border)] bg-[var(--warning-soft)]'
+                  : ''
+              }`}
             >
-              {isScanning ? 'Đang xử lý...' : 'Xử lý cảnh báo'}
-            </Button>
-          </div>
-        </div>
+              <dt
+                className={`font-medium ${
+                  cell.tone === 'warning'
+                    ? 'text-[var(--warning)]'
+                    : cell.tone === 'danger'
+                      ? 'text-[var(--danger)]'
+                      : 'text-[var(--muted)]'
+                }`}
+              >
+                {cell.label}
+              </dt>
+              <dd
+                className={`mt-1 font-mono text-2xl font-semibold tabular-nums ${
+                  cell.tone === 'warning'
+                    ? 'text-[var(--warning)]'
+                    : cell.tone === 'danger'
+                      ? 'text-[var(--danger)]'
+                      : 'text-[var(--text)]'
+                }`}
+              >
+                {cell.value}
+              </dd>
+              <dd className="mt-1 text-[11px] text-[var(--muted)]">{cell.note}</dd>
+            </div>
+          ))}
+        </dl>
 
-        <section className="service-page" aria-label="Kết quả cảnh báo học vụ">
-          <label>Giới hạn chuyển cảnh báo tới n8n<select value={scanLimit} disabled={isScanning} onChange={e => setScanLimit(Number(e.target.value))}>
-            <option value={0}>Chỉ quét, chưa gửi thông báo</option><option value={1}>Gửi tối đa 1 sinh viên</option><option value={5}>Gửi tối đa 5 sinh viên</option><option value={20}>Gửi tối đa 20 sinh viên</option>
-          </select></label>
-          {scanError && <p className="service-error" role="alert">{scanError}</p>}
-          {isScanning ? <div className="service-loading" role="status">Đang quét cảnh báo…</div> : scanResult ? <>
-            <p role="status">{scanResult.total_violations} sinh viên cần cảnh báo · Đã chuyển {scanResult.dispatched_count}/{Math.min(scanLimit,scanResult.total_violations)} thông báo tới n8n.</p>
-            {scanResult.dispatched_count < Math.min(scanLimit,scanResult.total_violations) && <p className="service-error">Một số thông báo chưa chuyển được. Kiểm tra kết nối n8n trước khi gửi lại.</p>}
-            {!scanResult.violations.length ? <p>Không phát hiện vi phạm trong lần quét này.</p> : <div className="overflow-x-auto"><table className="w-full text-left"><thead><tr><th>MSSV</th><th>Họ tên</th><th>GPA</th><th>Vắng (%)</th><th>Mức cảnh báo</th></tr></thead><tbody>{scanResult.violations.map(s => <tr key={s.student_id} className="border-b border-[var(--border)]"><td className="py-3">{s.student_id}</td><td>{s.full_name}</td><td>{s.gpa}</td><td>{s.absent_rate}</td><td>{s.warning_tier.replace('TIER_','Mức ')}</td></tr>)}</tbody></table></div>}
-          </> : <p>Bấm Xử lý cảnh báo để xem kết quả.</p>}
+        <section className={panel} aria-labelledby="scan-title">
+          <div className={panelHead}>
+            <div>
+              <h2 id="scan-title" className="text-sm font-semibold text-[var(--text)]">
+                Quét cảnh báo học vụ
+              </h2>
+              <p className="mt-0.5 text-[var(--muted)]">
+                Tìm sinh viên có GPA dưới 2.0, vắng từ 20% hoặc nợ từ 8 tín chỉ. Có thể gửi thông báo qua n8n.
+              </p>
+            </div>
+            <div className="flex flex-wrap items-end gap-2">
+              <label className="grid gap-1 text-[11px] text-[var(--muted)]">
+                Gửi thông báo
+                <select
+                  value={scanLimit}
+                  disabled={isScanning}
+                  onChange={(e) => setScanLimit(Number(e.target.value))}
+                  className="min-h-8 rounded-md border px-2 text-xs"
+                >
+                  <option value={0}>Chỉ quét, chưa gửi</option>
+                  <option value={1}>Tối đa 1 sinh viên</option>
+                  <option value={5}>Tối đa 5 sinh viên</option>
+                  <option value={20}>Tối đa 20 sinh viên</option>
+                </select>
+              </label>
+              <Button
+                type="button"
+                size="sm"
+                isLoading={isScanning}
+                onClick={handleScanWarnings}
+              >
+                {isScanning ? 'Đang quét…' : 'Quét cảnh báo'}
+              </Button>
+            </div>
+          </div>
+
+          <div className="px-4 py-3">
+            {scanError && (
+              <p className="mb-3 text-[var(--danger)]" role="alert">
+                {scanError}
+              </p>
+            )}
+            {isScanning ? (
+              <div className="space-y-2" role="status" aria-label="Đang quét cảnh báo">
+                <Skeleton className="h-4 w-1/3" />
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-full" />
+              </div>
+            ) : scanResult ? (
+              <>
+                <p role="status" className="text-[var(--text)]">
+                  <span className="font-mono tabular-nums">{scanResult.total_violations}</span> sinh viên cần
+                  cảnh báo ·{' '}
+                  {plannedDispatch === 0 ? (
+                    'chỉ quét, chưa gửi thông báo.'
+                  ) : (
+                    <>
+                      đã gửi{' '}
+                      <span className="font-mono tabular-nums">
+                        {scanResult.dispatched_count}/{plannedDispatch}
+                      </span>{' '}
+                      thông báo tới n8n.
+                    </>
+                  )}
+                </p>
+                {scanResult.dispatched_count < plannedDispatch && (
+                  <p className="mt-2 text-[var(--danger)]" role="alert">
+                    Một số thông báo chưa gửi được. Kiểm tra kết nối n8n trước khi gửi lại.
+                  </p>
+                )}
+                {!scanResult.violations.length ? (
+                  <p className="mt-2 text-[var(--muted)]">Không có sinh viên nào cần cảnh báo trong lần quét này.</p>
+                ) : (
+                  <div className="mt-3 overflow-x-auto">
+                    <table className="w-full text-left">
+                      <thead>
+                        <tr className="border-b border-[var(--border)]">
+                          <th className="py-2 pr-4 font-medium">MSSV</th>
+                          <th className="py-2 pr-4 font-medium">Họ tên</th>
+                          <th className="py-2 pr-4 text-right font-medium">GPA</th>
+                          <th className="py-2 pr-4 text-right font-medium">Vắng</th>
+                          <th className="py-2 font-medium">Mức cảnh báo</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {scanResult.violations.map((s) => (
+                          <tr key={s.student_id} className="border-b border-[var(--border)] last:border-0">
+                            <td className="py-2.5 pr-4 font-mono text-[var(--muted)]">{s.student_id}</td>
+                            <td className="py-2.5 pr-4 text-[var(--text)]">{s.full_name}</td>
+                            <td className="py-2.5 pr-4 text-right font-mono tabular-nums">{s.gpa.toFixed(2)}</td>
+                            <td className="py-2.5 pr-4 text-right font-mono tabular-nums">{s.absent_rate}%</td>
+                            <td className="py-2.5">{s.warning_tier.replace('TIER_', 'Mức ')}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </>
+            ) : (
+              <p className="text-[var(--muted)]">Chưa quét trong phiên này. Bấm Quét cảnh báo để xem danh sách.</p>
+            )}
+          </div>
         </section>
 
-        {/* ============ KPI Stat Cards ============ */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* Total students */}
-          <div className="p-4 rounded-xl border border-slate-200 bg-white shadow-2xs">
-            <div className="flex items-center justify-between text-slate-500 mb-2">
-              <span className="text-xs font-semibold">Tổng sinh viên</span>
-              <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
-                <Users className="w-4 h-4" />
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <section className={panel} aria-labelledby="violators-title">
+            <div className={panelHead}>
+              <div>
+                <h2 id="violators-title" className="text-sm font-semibold text-[var(--text)]">
+                  Vắng nhiều nhất
+                </h2>
+                <p className="mt-0.5 text-[11px] text-[var(--muted)]">5 sinh viên có tỷ lệ vắng cao nhất</p>
               </div>
-            </div>
-            <div className="text-2xl font-bold text-slate-900 tabular-nums">{kpis.totalStudents}</div>
-            <span className="text-[11px] text-slate-400 flex items-center gap-1 mt-0.5">
-              <TrendingUp className="w-3 h-3 text-emerald-500" />
-              {kpis.activeStudents} đang hoạt động
-            </span>
-          </div>
-
-          {/* Attendance warning */}
-          <div className="attendance-warning-card p-4 rounded-xl border border-amber-200 bg-amber-50/40 shadow-2xs">
-            <div className="flex items-center justify-between text-amber-600 mb-2">
-              <span className="text-xs font-semibold">Cảnh báo điểm danh</span>
-              <div className="w-8 h-8 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center">
-                <AlertTriangle className="w-4 h-4" />
-              </div>
-            </div>
-            <div className="text-2xl font-bold text-amber-700 tabular-nums">{kpis.attendanceWarningCount}</div>
-            <span className="text-[11px] text-amber-600/80 flex items-center gap-1 mt-0.5">
-              <Activity className="w-3 h-3" />
-              Vắng ≥ 15% số tiết
-            </span>
-          </div>
-
-          {/* Exam prohibited */}
-          <div className="p-4 rounded-xl border border-rose-200 bg-rose-50/40 shadow-2xs">
-            <div className="flex items-center justify-between text-rose-600 mb-2">
-              <span className="text-xs font-semibold">Cấm thi (Điều 14)</span>
-              <div className="w-8 h-8 rounded-lg bg-rose-100 text-rose-700 flex items-center justify-center">
-                <ShieldCheck className="w-4 h-4" />
-              </div>
-            </div>
-            <div className="text-2xl font-bold text-rose-700 tabular-nums">{kpis.examProhibitedCount}</div>
-            <span className="text-[11px] text-rose-600/80 flex items-center gap-1 mt-0.5">
-              <Flame className="w-3 h-3" />
-              Vắng &gt; 20% → điểm F
-            </span>
-          </div>
-
-          {/* Thesis progress */}
-          <div className="p-4 rounded-xl border border-slate-200 bg-white shadow-2xs">
-            <div className="flex items-center justify-between text-slate-500 mb-2">
-              <span className="text-xs font-semibold">Đồ án tốt nghiệp</span>
-              <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
-                <BookOpen className="w-4 h-4" />
-              </div>
-            </div>
-            <div className="text-2xl font-bold text-slate-900 tabular-nums">{kpis.totalTheses}</div>
-            <span className="text-[11px] text-slate-400 flex items-center gap-1 mt-0.5">
-              <BarChart3 className="w-3 h-3 text-indigo-500" />
-              {Math.round(kpis.completedMilestonesRate)}% mốc đã hoàn thành
-            </span>
-          </div>
-        </div>
-
-        {/* ============ Two Columns: Violators + AI Assistant ============ */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Top Attendance Violators */}
-          <div className="rounded-xl border border-slate-200 bg-white overflow-hidden shadow-2xs">
-            <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-lg bg-rose-100 text-rose-600 flex items-center justify-center">
-                  <AlertTriangle className="w-3.5 h-3.5" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold text-slate-900">Sinh viên vi phạm cao nhất</h3>
-                  <p className="text-[11px] text-slate-400">Top 5 tỷ lệ vắng nghiêm trọng</p>
-                </div>
-              </div>
-              <Link href="/teacher/attendance?status=PROHIBITED">
-                <span className="text-xs font-semibold text-blue-600 hover:text-blue-800 cursor-pointer flex items-center gap-1">
-                  Xem tất cả <ArrowRight className="w-3 h-3" />
-                </span>
+              <Link href="/teacher/attendance?status=PROHIBITED" className={textLink}>
+                Xem danh sách cấm thi <ArrowRight className="h-3 w-3" strokeWidth={1.5} />
               </Link>
             </div>
 
-            <div className="divide-y divide-slate-50">
+            <ul className="divide-y divide-[var(--border)]">
               {violatorsLoading ? (
                 Array.from({ length: 5 }).map((_, i) => (
-                  <div key={i} className="px-4 py-3 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Skeleton className="w-7 h-7 rounded-full" />
-                      <div>
-                        <Skeleton className="h-3.5 w-28 mb-1" />
-                        <Skeleton className="h-3 w-20" />
-                      </div>
+                  <li key={i} className="flex items-center justify-between px-4 py-3">
+                    <div>
+                      <Skeleton className="mb-1 h-3.5 w-28" />
+                      <Skeleton className="h-3 w-20" />
                     </div>
-                    <Skeleton className="h-5 w-16 rounded-full" />
-                  </div>
+                    <Skeleton className="h-5 w-16" />
+                  </li>
                 ))
               ) : topViolators.length > 0 ? (
-                topViolators.map((s, idx) => {
+                topViolators.map((s) => {
                   const pct = Math.round((1 - s.attendanceRate) * 100);
                   return (
-                    <div
-                      key={s.id}
-                      className="px-4 py-3 flex items-center justify-between hover:bg-slate-50/60 transition-colors"
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <div
-                          className={`w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold ${
-                            idx < 3
-                              ? 'bg-rose-100 text-rose-700'
-                              : 'bg-slate-100 text-slate-600'
-                          }`}
-                        >
-                          {idx + 1}
-                        </div>
-                        <div>
-                          <span className="text-xs font-semibold text-slate-900 block">
-                            {s.fullName}
-                          </span>
-                          <span className="text-[11px] text-slate-400">
-                            {s.studentId} • {s.classId}
-                          </span>
-                        </div>
+                    <li key={s.id} className="flex items-center justify-between gap-3 px-4 py-3">
+                      <div className="min-w-0">
+                        <span className="block truncate font-medium text-[var(--text)]">{s.fullName}</span>
+                        <span className="font-mono text-[11px] text-[var(--muted)]">
+                          {s.studentId} · {s.classId}
+                        </span>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex shrink-0 items-center gap-3">
                         <Badge
-                          variant={s.examProhibited ? 'danger' : 'warning'}
-                          dot
+                          variant={s.examProhibited ? 'danger' : s.attendanceWarning ? 'warning' : 'neutral'}
                           size="sm"
                         >
-                          {pct}% vắng
+                          <span className="font-mono tabular-nums">{pct}%</span>
+                          {s.examProhibited ? 'cấm thi' : 'vắng'}
                         </Badge>
                         <Link
                           href={`/teacher/students?search=${encodeURIComponent(s.studentId)}`}
-                          className="text-[10px] font-semibold text-blue-600 hover:text-blue-800 hover:underline cursor-pointer"
-                          title="Xem hồ sơ sinh viên"
+                          className={textLink}
+                          aria-label={`Xem hồ sơ ${s.fullName}`}
                         >
-                          Xem hồ sơ
+                          Hồ sơ
                         </Link>
                       </div>
-                    </div>
+                    </li>
                   );
                 })
               ) : (
-                <div className="p-6 text-center text-xs text-slate-400">
-                  <CheckCircle2 className="w-6 h-6 mx-auto text-emerald-500 mb-2" />
-                  Tất cả sinh viên đều đủ điều kiện dự thi!
-                </div>
+                <li className="px-4 py-6 text-center text-[var(--muted)]">
+                  Chưa có sinh viên nào vắng quá ngưỡng.
+                </li>
               )}
-            </div>
-          </div>
+            </ul>
+          </section>
 
-          {/* AI Assistant */}
-          <div className="rounded-xl border border-slate-200 bg-white overflow-hidden shadow-2xs flex flex-col">
-            <div className="px-4 py-3 border-b border-slate-100 flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center">
-                <Sparkles className="w-3.5 h-3.5" />
-              </div>
+          <section className={`${panel} flex flex-col`} aria-labelledby="assistant-title">
+            <div className={panelHead}>
               <div>
-                <h3 className="text-sm font-bold text-slate-900">Trợ lý AI Học vụ (RAG)</h3>
-                <p className="text-[11px] text-slate-400">Google Gemini • Quy chế VKU</p>
+                <h2 id="assistant-title" className="text-sm font-semibold text-[var(--text)]">
+                  Trợ lý học vụ
+                </h2>
+                <p className="mt-0.5 text-[11px] text-[var(--muted)]">Trả lời dựa trên kho tài liệu quy chế</p>
               </div>
             </div>
 
-            <div className="flex-1 p-4 space-y-3 overflow-y-auto max-h-72">
-              {/* Earlier questions in this conversation */}
+            <div className="max-h-80 flex-1 space-y-3 overflow-y-auto p-4" aria-live="polite">
               {!aiResponse && !aiLoading && askedQuestions.length > 0 && (
                 <div className="space-y-2">
-                  <p className="text-xs text-slate-500">
+                  <p className="text-[var(--muted)]">
                     Đang hỏi tiếp. Trợ lý nhớ {Math.min(askedQuestions.length, 4)} câu gần nhất:
                   </p>
-                  <ul className="space-y-1 text-xs text-slate-700">
+                  <ul className="space-y-1">
                     {askedQuestions.slice(-4).map((q, i) => (
-                      <li key={i} className="px-3 py-2 bg-slate-50 rounded-lg border border-slate-200">
+                      <li key={i} className="rounded-md border border-[var(--border)] px-3 py-2 text-[var(--text)]">
                         {q}
                       </li>
                     ))}
@@ -376,86 +393,74 @@ export const OverviewContent: React.FC<OverviewContentProps> = ({ kpis }) => {
                       setConversationId(undefined);
                       setAskedQuestions([]);
                     }}
-                    className="text-xs text-slate-500 hover:text-slate-800 font-semibold cursor-pointer"
+                    className={textLink}
                   >
                     Bắt đầu hội thoại mới
                   </button>
                 </div>
               )}
 
-              {/* Example prompts */}
               {!aiResponse && !aiLoading && askedQuestions.length === 0 && (
                 <div className="space-y-2">
-                  <p className="text-xs text-slate-500">Một số câu hỏi bạn có thể hỏi:</p>
+                  <p className="text-[var(--muted)]">Câu hỏi gợi ý:</p>
                   {[
-                    'Sinh viên nào vi phạm điều 14 về điểm danh?',
-                    'Tóm tắt tiến độ đồ án tốt nghiệp nhóm CNTT?',
-                    'Quy chế VKU quy định gì về vắng học?',
+                    'Sinh viên vắng bao nhiêu phần trăm thì bị cấm thi?',
+                    'Đồ án tốt nghiệp gồm những mốc nào?',
+                    'Thời hạn đăng ký học phần học kỳ này?',
                   ].map((q) => (
                     <button
                       key={q}
                       onClick={() => setAiQuestion(q)}
-                      className="block w-full text-left px-3 py-2 text-xs text-slate-700 bg-slate-50 hover:bg-slate-100 rounded-lg border border-slate-200 hover:border-slate-300 transition-colors cursor-pointer"
+                      className="block w-full cursor-pointer rounded-md border border-[var(--border)] px-3 py-2 text-left text-[var(--text)] hover:border-[var(--primary)] hover:text-[var(--primary)]"
                     >
-                      &quot;{q}&quot;
+                      {q}
                     </button>
                   ))}
                 </div>
               )}
 
-              {/* Loading */}
               {aiLoading && (
-                <div className="flex items-center gap-2 text-xs text-slate-500">
-                  <div className="animate-spin w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full" />
-                  <span>Đang phân tích dữ liệu học vụ với Gemini RAG...</span>
+                <div className="space-y-2" role="status" aria-label="Trợ lý đang trả lời">
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-4/5" />
+                  <Skeleton className="h-4 w-2/3" />
                 </div>
               )}
 
-              {/* Response */}
               {aiResponse && (
                 <div className="space-y-3">
-                  <div className="p-3 rounded-xl bg-blue-50 border border-blue-200/60 text-xs text-blue-900 leading-relaxed">
-                    <p>{aiResponse.answer}</p>
-                  </div>
+                  <p className="whitespace-pre-wrap leading-relaxed text-[var(--text)]">{aiResponse.answer}</p>
 
-                  <div className="flex items-center gap-3 text-[11px] text-slate-500">
-                    <span className="flex items-center gap-1">
-                      <ShieldCheck className="w-3 h-3 text-emerald-600" />
-                      Độ tin cậy: <strong className="text-slate-900">{Math.round(aiResponse.confidence_score * 100)}%</strong>
+                  <div className="flex flex-wrap items-center gap-2 text-[11px] text-[var(--muted)]">
+                    <span>
+                      Độ tin cậy{' '}
+                      <span className="font-mono tabular-nums text-[var(--text)]">
+                        {Math.round(aiResponse.confidence_score * 100)}%
+                      </span>
                     </span>
-                    {aiResponse.dispatched_to_n8n ? (
-                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
-                        <Sparkles className="w-2.5 h-2.5 text-emerald-600" />
-                        Đã qua luồng n8n
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-600 border border-slate-200">
-                        AI Nội bộ (Fallback)
-                      </span>
-                    )}
+                    <span aria-hidden>·</span>
+                    <span>{aiResponse.dispatched_to_n8n ? 'Qua luồng n8n' : 'Trả lời dự phòng (không qua n8n)'}</span>
                     {aiResponse.requires_human_escalation && (
-                      <Badge variant="warning" size="sm" dot>
-                        Cần xác minh thủ công
+                      <Badge variant="danger" size="sm">
+                        Cần cán bộ xác minh
                       </Badge>
                     )}
                   </div>
 
                   {aiResponse.citations.length > 0 && (
-                    <div className="text-[11px] text-slate-400">
-                      <span className="font-semibold text-slate-600">Nguồn tham chiếu:</span>{' '}
-                      {aiResponse.citations.join(', ')}
-                    </div>
+                    <p className="text-[11px] text-[var(--muted)]">
+                      <span className="font-medium text-[var(--text)]">Nguồn:</span> {aiResponse.citations.join(', ')}
+                    </p>
                   )}
 
                   {aiResponse.suggested_actions && aiResponse.suggested_actions.length > 0 && (
-                    <div className="space-y-1">
-                      <span className="text-[11px] font-semibold text-slate-600">Hành động đề xuất:</span>
-                      {aiResponse.suggested_actions.map((action, i) => (
-                        <div key={i} className="flex items-start gap-1.5 text-[11px] text-slate-700">
-                          <CheckCircle2 className="w-3 h-3 text-emerald-500 flex-shrink-0 mt-0.5" />
-                          <span>{action}</span>
-                        </div>
-                      ))}
+                    <div>
+                      <p className="mb-1 text-[11px] font-medium text-[var(--text)]">Gợi ý xử lý</p>
+                      <ul className="list-disc space-y-1 pl-5 text-[11px] text-[var(--text)]">
+                        {aiResponse.suggested_actions.map((action, i) => (
+                          <li key={i}>{action}</li>
+                        ))}
+                      </ul>
                     </div>
                   )}
 
@@ -465,9 +470,9 @@ export const OverviewContent: React.FC<OverviewContentProps> = ({ kpis }) => {
                         setAiResponse(null);
                         setAiQuestion('');
                       }}
-                      className="text-xs text-blue-600 hover:text-blue-800 font-semibold cursor-pointer"
+                      className={textLink}
                     >
-                      Hỏi tiếp →
+                      Hỏi tiếp
                     </button>
                     {conversationId && (
                       <button
@@ -477,7 +482,7 @@ export const OverviewContent: React.FC<OverviewContentProps> = ({ kpis }) => {
                           setConversationId(undefined);
                           setAskedQuestions([]);
                         }}
-                        className="text-xs text-slate-500 hover:text-slate-800 font-semibold cursor-pointer"
+                        className="cursor-pointer text-xs font-medium text-[var(--muted)] hover:text-[var(--primary)]"
                       >
                         Hội thoại mới
                       </button>
@@ -487,82 +492,31 @@ export const OverviewContent: React.FC<OverviewContentProps> = ({ kpis }) => {
               )}
             </div>
 
-            <form onSubmit={handleAskAI} className="p-3 border-t border-slate-100 flex items-center gap-2">
+            <form onSubmit={handleAskAI} className="flex items-center gap-2 border-t border-[var(--border)] p-3">
+              <label htmlFor="assistant-question" className="sr-only">
+                Câu hỏi cho trợ lý
+              </label>
               <input
+                id="assistant-question"
                 value={aiQuestion}
                 onChange={(e) => setAiQuestion(e.target.value)}
-                placeholder="Hỏi về quy chế học vụ, điểm danh, đồ án..."
-                className="flex-1 bg-slate-50 text-slate-900 placeholder:text-slate-400 text-xs rounded-lg border border-slate-200 focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20 px-3 py-2 outline-none transition-all"
+                placeholder="Hỏi về quy chế, điểm danh, đồ án"
+                className="min-h-10 flex-1 rounded-md border px-3 text-xs outline-none focus:border-[var(--primary)]"
                 disabled={aiLoading}
               />
-              <button
+              <Button
                 type="submit"
-                disabled={aiLoading || !aiQuestion.trim()}
-                className="p-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                size="md"
+                disabled={!aiQuestion.trim()}
+                isLoading={aiLoading}
+                aria-label="Gửi câu hỏi"
+                className="px-3"
               >
-                <Send className="w-4 h-4" />
-              </button>
+                {!aiLoading && <Send className="h-4 w-4" strokeWidth={1.5} />}
+              </Button>
             </form>
-          </div>
+          </section>
         </div>
-
-        {/* ============ Quick Navigation Cards ============ */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <Link href="/teacher/students" className="group block">
-            <div className="p-4 rounded-xl border border-slate-200 bg-white hover:border-blue-300 hover:shadow-sm transition-all">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="w-9 h-9 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center group-hover:bg-blue-100 transition-colors">
-                  <Users className="w-4.5 h-4.5" />
-                </div>
-                <h4 className="text-sm font-bold text-slate-900">Quản lý Sinh viên</h4>
-              </div>
-              <p className="text-xs text-slate-500 leading-relaxed">
-                Danh sách {kpis.totalStudents} sinh viên, phân trang server, tìm kiếm và lọc theo lớp sinh hoạt.
-              </p>
-              <span className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-blue-600 group-hover:gap-2 transition-all">
-                Xem bảng sinh viên <ArrowRight className="w-3 h-3" />
-              </span>
-            </div>
-          </Link>
-
-          <Link href="/teacher/attendance" className="group block">
-            <div className="p-4 rounded-xl border border-slate-200 bg-white hover:border-amber-300 hover:shadow-sm transition-all">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="w-9 h-9 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center group-hover:bg-amber-100 transition-colors">
-                  <CalendarCheck2 className="w-4.5 h-4.5" />
-                </div>
-                <h4 className="text-sm font-bold text-slate-900">Giám sát Điểm danh</h4>
-              </div>
-              <p className="text-xs text-slate-500 leading-relaxed">
-                Theo dõi {kpis.attendanceWarningCount} cảnh báo và {kpis.examProhibitedCount} lệnh cấm thi theo Điều 14.
-              </p>
-              <span className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-amber-600 group-hover:gap-2 transition-all">
-                Xem bảng điểm danh <ArrowRight className="w-3 h-3" />
-              </span>
-            </div>
-          </Link>
-
-          <Link href="/teacher/projects" className="group block">
-            <div className="p-4 rounded-xl border border-slate-200 bg-white hover:border-indigo-300 hover:shadow-sm transition-all">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="w-9 h-9 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:bg-indigo-100 transition-colors">
-                  <GraduationCap className="w-4.5 h-4.5" />
-                </div>
-                <h4 className="text-sm font-bold text-slate-900">Đồ án Tốt nghiệp</h4>
-              </div>
-              <p className="text-xs text-slate-500 leading-relaxed">
-                Quản lý {kpis.totalTheses} đề tài, {Math.round(kpis.completedMilestonesRate)}% mốc đã hoàn thành.
-              </p>
-              <span className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 group-hover:gap-2 transition-all">
-                Xem bảng đồ án <ArrowRight className="w-3 h-3" />
-              </span>
-            </div>
-          </Link>
-        </div>
-
-        <p className="text-xs text-slate-500 border-t border-slate-200 pt-4">
-          Theo dõi học vụ, xem bài nộp và cập nhật tiến độ trong các mục điều hướng.
-        </p>
       </div>
     </>
   );

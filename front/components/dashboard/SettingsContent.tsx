@@ -1,267 +1,96 @@
-'use client';
+import React from 'react';
+import { Info } from 'lucide-react';
 
-import React, { useState } from 'react';
-import {
-  Zap,
-  Clock,
-  CheckCircle2,
-  AlertTriangle,
-  BookOpen,
-  Users,
-  Sparkles,
-  Server,
-  Lock,
-  Save,
-} from 'lucide-react';
-import { Button } from '@/components/ui/Button';
-import { Badge } from '@/components/ui/Badge';
+/*
+ * Trang chỉ đọc: các ngưỡng dưới đây đang được backend áp dụng cố định
+ * (attendance.service.ts, academic-warning.service.ts, thesis.service.ts).
+ * Cổng giảng viên chưa có API đổi cấu hình, nên không hiện ô nhập hay nút lưu.
+ */
+const SECTIONS: {
+  id: string;
+  title: string;
+  description: string;
+  rows: { label: string; value: React.ReactNode }[];
+}[] = [
+  {
+    id: 'attendance',
+    title: 'Điểm danh (Điều 14 quy chế)',
+    description: 'Tính trên từng học phần, theo số tiết vắng so với tổng số tiết.',
+    rows: [
+      { label: 'Cảnh báo', value: <>Vắng từ <Num>15%</Num> số tiết</> },
+      { label: 'Cấm thi', value: <>Vắng trên <Num>20%</Num> số tiết</> },
+    ],
+  },
+  {
+    id: 'academic-warning',
+    title: 'Quét cảnh báo học vụ',
+    description: 'Áp dụng khi bấm Quét cảnh báo ở trang Tổng quan. Chỉ cần thỏa một điều kiện.',
+    rows: [
+      { label: 'Điểm trung bình', value: <>GPA dưới <Num>2.0</Num></> },
+      { label: 'Vắng học', value: <>Từ <Num>20%</Num> số tiết</> },
+      { label: 'Nợ tín chỉ', value: <>Từ <Num>8</Num> tín chỉ trở lên</> },
+    ],
+  },
+  {
+    id: 'thesis',
+    title: 'Đồ án tốt nghiệp',
+    description: 'Cập nhật mỗi khi giảng viên đổi trạng thái một mốc.',
+    rows: [
+      { label: 'Tiến độ', value: 'Số mốc hoàn thành chia cho tổng số mốc của đề tài' },
+      { label: 'Đủ điều kiện bảo vệ', value: <>Tiến độ từ <Num>75%</Num></> },
+    ],
+  },
+  {
+    id: 'services',
+    title: 'Dịch vụ liên kết',
+    description: 'Địa chỉ, khóa và mô hình đặt trong cấu hình máy chủ, không hiện ở cổng.',
+    rows: [
+      { label: 'Tự động hóa', value: 'Workflow n8n: điểm danh, đăng ký học phần, cảnh báo học vụ, hỏi đáp, chấm bài, đồ án' },
+      { label: 'Trợ lý và chấm bài', value: <>Google Gemini, mô hình theo biến <Code>GEMINI_MODEL</Code></> },
+      { label: 'Kho tài liệu tra cứu', value: 'Supabase pgvector' },
+      { label: 'Đăng nhập', value: 'Phiên cookie ký HMAC, khóa cổng riêng khi gọi backend' },
+    ],
+  },
+];
 
-export const SettingsContent: React.FC = () => {
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const [warningThreshold, setWarningThreshold] = useState(15);
-  const [prohibitedThreshold, setProhibitedThreshold] = useState(20);
-  const [webhookEnabled, setWebhookEnabled] = useState(true);
-  const [aiEnabled, setAiEnabled] = useState(true);
+function Num({ children }: { children: React.ReactNode }) {
+  return <span className="font-mono tabular-nums text-[var(--primary)]">{children}</span>;
+}
 
-  const showToast = (msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3500);
-  };
+function Code({ children }: { children: React.ReactNode }) {
+  return <code className="font-mono text-[11px] text-[var(--text)]">{children}</code>;
+}
 
-  const handleSave = () => {
-    showToast('Cấu hình đã được lưu thành công!');
-  };
+export const SettingsContent: React.FC = () => (
+  <div className="space-y-6 text-xs">
+    <p className="flex items-start gap-2 text-[var(--muted)]">
+      <Info className="mt-px h-4 w-4 shrink-0" strokeWidth={1.5} />
+      Các quy tắc hệ thống đang áp dụng. Muốn thay đổi, cần sửa cấu hình backend; trang này chỉ để xem.
+    </p>
 
-  return (
-    <>
-      {/* Toast */}
-      {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-xl border border-slate-700 flex items-center gap-3 text-xs">
-          <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
-          <span>{toastMessage}</span>
-        </div>
-      )}
-
-      <div className="space-y-6">
-        {/* ============ Section: Attendance Thresholds ============ */}
-        <div className="rounded-xl border border-slate-200 bg-white overflow-hidden shadow-2xs">
-          <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
-              <AlertTriangle className="w-4 h-4" />
-            </div>
-            <div>
-              <h3 className="text-sm font-bold text-slate-900">
-                Ngưỡng Cảnh báo Điểm danh (Quy chế VKU Điều 14)
-              </h3>
-              <p className="text-[11px] text-slate-400">
-                Cấu hình tỷ lệ vắng kích hoạt cảnh báo tự động và lệnh cấm thi
-              </p>
-            </div>
+    <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+      {SECTIONS.map((section) => (
+        <section
+          key={section.id}
+          aria-labelledby={`settings-${section.id}`}
+          className="rounded-lg border border-[var(--border)] bg-[var(--surface)]"
+        >
+          <div className="border-b border-[var(--border)] px-4 py-3">
+            <h2 id={`settings-${section.id}`} className="text-sm font-semibold text-[var(--text)]">
+              {section.title}
+            </h2>
+            <p className="mt-0.5 text-[11px] text-[var(--muted)]">{section.description}</p>
           </div>
-
-          <div className="p-5 space-y-5">
-            {/* Warning threshold */}
-            <div className="flex items-center justify-between gap-6">
-              <div className="flex-1">
-                <label className="text-xs font-semibold text-slate-700 block mb-1">
-                  Ngưỡng cảnh báo (%)
-                </label>
-                <p className="text-[11px] text-slate-400">
-                  Sinh viên vắng bằng hoặc hơn tỷ lệ này sẽ bị gắn trạng thái &quot;CẢNH BÁO&quot;
-                </p>
+          <dl className="divide-y divide-[var(--border)]">
+            {section.rows.map((row) => (
+              <div key={row.label} className="grid grid-cols-[minmax(0,10rem)_1fr] gap-4 px-4 py-3">
+                <dt className="text-[var(--muted)]">{row.label}</dt>
+                <dd className="text-[var(--text)]">{row.value}</dd>
               </div>
-              <div className="flex items-center gap-2">
-                <input
-                  type="number"
-                  value={warningThreshold}
-                  onChange={(e) => setWarningThreshold(Number(e.target.value))}
-                  min={5}
-                  max={50}
-                  className="w-20 text-center bg-slate-50 text-slate-900 text-sm font-bold rounded-lg border border-slate-200 focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20 py-2 outline-none tabular-nums"
-                />
-                <span className="text-xs text-slate-500 font-medium">%</span>
-              </div>
-            </div>
-
-            <div className="border-t border-slate-100" />
-
-            {/* Prohibited threshold */}
-            <div className="flex items-center justify-between gap-6">
-              <div className="flex-1">
-                <label className="text-xs font-semibold text-slate-700 block mb-1">
-                  Ngưỡng cấm thi (%)
-                </label>
-                <p className="text-[11px] text-slate-400">
-                  Sinh viên vắng quá tỷ lệ này sẽ bị cấm thi và nhận điểm F theo quy chế VKU
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <input
-                  type="number"
-                  value={prohibitedThreshold}
-                  onChange={(e) => setProhibitedThreshold(Number(e.target.value))}
-                  min={10}
-                  max={50}
-                  className="w-20 text-center bg-slate-50 text-slate-900 text-sm font-bold rounded-lg border border-slate-200 focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20 py-2 outline-none tabular-nums"
-                />
-                <span className="text-xs text-slate-500 font-medium">%</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* ============ Section: Integration Status ============ */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* n8n Webhook */}
-          <div className="rounded-xl border border-slate-200 bg-white overflow-hidden shadow-2xs">
-            <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-orange-50 text-orange-600 flex items-center justify-center">
-                  <Zap className="w-4 h-4" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold text-slate-900">n8n Webhook Automation</h3>
-                  <p className="text-[11px] text-slate-400">Gửi sự kiện điểm danh tự động</p>
-                </div>
-              </div>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={webhookEnabled}
-                  onChange={(e) => setWebhookEnabled(e.target.checked)}
-                  className="sr-only peer"
-                />
-                <div className="w-10 h-5 bg-slate-200 peer-focus:ring-2 peer-focus:ring-blue-500/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-slate-200 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600" />
-              </label>
-            </div>
-
-            <div className="p-5 space-y-3 text-xs">
-              <div className="flex items-center justify-between">
-                <span className="text-slate-500">Webhook URL</span>
-                <code className="text-[11px] font-mono text-slate-700 bg-slate-50 px-2 py-0.5 rounded border border-slate-200">
-                  http://localhost:5678/webhook/attendance
-                </code>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-slate-500">Trạng thái</span>
-                <Badge variant={webhookEnabled ? 'success' : 'neutral'} dot size="sm">
-                  {webhookEnabled ? 'Đang hoạt động' : 'Đã tắt'}
-                </Badge>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-slate-500">Lần gửi cuối</span>
-                <span className="text-slate-700 font-medium">10 phút trước</span>
-              </div>
-            </div>
-          </div>
-
-          {/* AI Engine */}
-          <div className="rounded-xl border border-slate-200 bg-white overflow-hidden shadow-2xs">
-            <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
-                  <Sparkles className="w-4 h-4" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold text-slate-900">Google Gemini AI Engine</h3>
-                  <p className="text-[11px] text-slate-400">RAG + Quy chế học vụ VKU</p>
-                </div>
-              </div>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={aiEnabled}
-                  onChange={(e) => setAiEnabled(e.target.checked)}
-                  className="sr-only peer"
-                />
-                <div className="w-10 h-5 bg-slate-200 peer-focus:ring-2 peer-focus:ring-blue-500/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-slate-200 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600" />
-              </label>
-            </div>
-
-            <div className="p-5 space-y-3 text-xs">
-              <div className="flex items-center justify-between">
-                <span className="text-slate-500">Model</span>
-                <span className="text-slate-700 font-mono text-[11px] bg-slate-50 px-2 py-0.5 rounded border border-slate-200">
-                  gemini-2.5-flash
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-slate-500">Vector Store</span>
-                <span className="text-slate-700 font-medium">MongoDB Atlas (embedded)</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-slate-500">Trạng thái</span>
-                <Badge variant={aiEnabled ? 'success' : 'neutral'} dot size="sm">
-                  {aiEnabled ? 'Đang hoạt động' : 'Đã tắt'}
-                </Badge>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* ============ Section: Academic Calendar ============ */}
-        <div className="rounded-xl border border-slate-200 bg-white overflow-hidden shadow-2xs">
-          <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
-              <Clock className="w-4 h-4" />
-            </div>
-            <div>
-              <h3 className="text-sm font-bold text-slate-900">Lịch Học kỳ & Cấu hình Hệ thống</h3>
-              <p className="text-[11px] text-slate-400">Thông tin niên khóa hiện tại</p>
-            </div>
-          </div>
-
-          <div className="p-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
-            <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
-                <BookOpen className="w-3.5 h-3.5" />
-              </div>
-              <div>
-                <span className="text-slate-500 block">Học kỳ</span>
-                <span className="text-slate-900 font-bold">Học kỳ 1 (2026-2027)</span>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
-                <Users className="w-3.5 h-3.5" />
-              </div>
-              <div>
-                <span className="text-slate-500 block">Tổng sinh viên</span>
-                <span className="text-slate-900 font-bold tabular-nums">500 sinh viên</span>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 rounded-lg bg-violet-50 text-violet-600 flex items-center justify-center">
-                <Server className="w-3.5 h-3.5" />
-              </div>
-              <div>
-                <span className="text-slate-500 block">Backend</span>
-                <span className="text-slate-900 font-bold">NestJS + MongoDB</span>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center">
-                <Lock className="w-3.5 h-3.5" />
-              </div>
-              <div>
-                <span className="text-slate-500 block">Xác thực</span>
-                <span className="text-slate-900 font-bold">JWT + RBAC</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* ============ Save Button ============ */}
-        <div className="flex justify-end">
-          <Button variant="primary" size="md" onClick={handleSave}>
-            <Save className="w-4 h-4 mr-1.5" />
-            Lưu cấu hình
-          </Button>
-        </div>
-      </div>
-    </>
-  );
-};
+            ))}
+          </dl>
+        </section>
+      ))}
+    </div>
+  </div>
+);

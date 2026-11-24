@@ -52,12 +52,12 @@ export const DataTablePagination: React.FC<DataTablePaginationProps> = ({
   }
 
   return (
-    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 border-t border-slate-200 bg-[var(--surface)] text-xs">
+    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 border-t border-[var(--border)] bg-[var(--surface)] text-xs">
       {/* Information string with tabular nums */}
-      <div className="text-slate-500 tabular-nums">
-        Hiển thị <strong className="text-slate-800">{startRecord}</strong> -{' '}
-        <strong className="text-slate-800">{endRecord}</strong> trên tổng số{' '}
-        <strong className="text-slate-800">{total}</strong> bản ghi (Trang {page}/{totalPages || 1})
+      <div className="text-[var(--muted)] tabular-nums">
+        Hiển thị <strong className="text-[var(--text)]">{startRecord}</strong> -{' '}
+        <strong className="text-[var(--text)]">{endRecord}</strong> trên tổng số{' '}
+        <strong className="text-[var(--text)]">{total}</strong> bản ghi (Trang {page}/{totalPages || 1})
       </div>
 
       {/* Pagination button group */}
@@ -66,8 +66,8 @@ export const DataTablePagination: React.FC<DataTablePaginationProps> = ({
         <button
           onClick={() => handlePageChange(1)}
           disabled={page <= 1 || isPending}
-          className="p-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
-          title="Trang đầu"
+          className="p-1.5 rounded-md border border-[var(--border)] bg-[var(--surface)] text-[var(--muted)] hover:bg-[var(--primary-soft)] disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
+          aria-label="Trang đầu"
         >
           <ChevronsLeft className="w-3.5 h-3.5" />
         </button>
@@ -76,7 +76,7 @@ export const DataTablePagination: React.FC<DataTablePaginationProps> = ({
         <button
           onClick={() => handlePageChange(page - 1)}
           disabled={page <= 1 || isPending}
-          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed font-medium transition-colors cursor-pointer"
+          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md border border-[var(--border)] bg-[var(--surface)] text-[var(--text)] hover:bg-[var(--primary-soft)] disabled:opacity-40 disabled:cursor-not-allowed font-medium transition-colors cursor-pointer"
         >
           <ChevronLeft className="w-3.5 h-3.5" />
           <span>Trước</span>
@@ -87,11 +87,11 @@ export const DataTablePagination: React.FC<DataTablePaginationProps> = ({
           <>
             <button
               onClick={() => handlePageChange(1)}
-              className="w-8 h-8 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-100 tabular-nums font-medium cursor-pointer"
+              className="w-8 h-8 rounded-md border border-[var(--border)] bg-[var(--surface)] text-[var(--text)] hover:bg-[var(--primary-soft)] tabular-nums font-medium cursor-pointer"
             >
               1
             </button>
-            {rangeStart > 2 && <span className="px-1 text-slate-400">...</span>}
+            {rangeStart > 2 && <span className="px-1 text-[var(--muted)]">...</span>}
           </>
         )}
 
@@ -100,10 +100,12 @@ export const DataTablePagination: React.FC<DataTablePaginationProps> = ({
             key={num}
             onClick={() => handlePageChange(num)}
             disabled={isPending}
-            className={`w-8 h-8 rounded-lg text-xs font-semibold tabular-nums transition-colors cursor-pointer ${
+            aria-label={`Trang ${num}`}
+            aria-current={num === page ? 'page' : undefined}
+            className={`w-8 h-8 rounded-md text-xs font-semibold tabular-nums transition-colors cursor-pointer ${
               num === page
-                ? 'bg-blue-600 text-white shadow-2xs'
-                : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-100'
+                ? 'border border-[var(--primary)] bg-[var(--primary)] text-[#071216]'
+                : 'border border-[var(--border)] bg-[var(--surface)] text-[var(--text)] hover:bg-[var(--primary-soft)]'
             }`}
           >
             {num}
@@ -112,10 +114,10 @@ export const DataTablePagination: React.FC<DataTablePaginationProps> = ({
 
         {rangeEnd < totalPages && (
           <>
-            {rangeEnd < totalPages - 1 && <span className="px-1 text-slate-400">...</span>}
+            {rangeEnd < totalPages - 1 && <span className="px-1 text-[var(--muted)]">...</span>}
             <button
               onClick={() => handlePageChange(totalPages)}
-              className="w-8 h-8 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-100 tabular-nums font-medium cursor-pointer"
+              className="w-8 h-8 rounded-md border border-[var(--border)] bg-[var(--surface)] text-[var(--text)] hover:bg-[var(--primary-soft)] tabular-nums font-medium cursor-pointer"
             >
               {totalPages}
             </button>
@@ -126,7 +128,7 @@ export const DataTablePagination: React.FC<DataTablePaginationProps> = ({
         <button
           onClick={() => handlePageChange(page + 1)}
           disabled={page >= totalPages || isPending}
-          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed font-medium transition-colors cursor-pointer"
+          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md border border-[var(--border)] bg-[var(--surface)] text-[var(--text)] hover:bg-[var(--primary-soft)] disabled:opacity-40 disabled:cursor-not-allowed font-medium transition-colors cursor-pointer"
         >
           <span>Sau</span>
           <ChevronRight className="w-3.5 h-3.5" />
@@ -136,8 +138,8 @@ export const DataTablePagination: React.FC<DataTablePaginationProps> = ({
         <button
           onClick={() => handlePageChange(totalPages)}
           disabled={page >= totalPages || isPending}
-          className="p-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
-          title="Trang cuối"
+          className="p-1.5 rounded-md border border-[var(--border)] bg-[var(--surface)] text-[var(--muted)] hover:bg-[var(--primary-soft)] disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
+          aria-label="Trang cuối"
         >
           <ChevronsRight className="w-3.5 h-3.5" />
         </button>

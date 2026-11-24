@@ -60,26 +60,18 @@ async function AttendanceDataContent({
 
   return (
     <div className="space-y-4">
-      <div className="p-4 rounded-xl border border-slate-200 bg-white flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
-        <div>
-          <h2 className="text-sm font-bold text-slate-900">
-            Giám sát Điểm danh Sinh viên (Quy chế VKU Điều 14)
-          </h2>
-          <p className="text-slate-500 mt-0.5">
-            Phân trang 20 bản ghi/trang, tự động phát hiện sinh viên vắng $\ge 15\%$ và cấm thi khi vắng &gt; 20%.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="px-2.5 py-1 rounded-full bg-rose-50 text-rose-700 font-semibold border border-rose-200/60 tabular-nums">
-            Cấm thi: {kpis.examProhibitedCount} SV
-          </span>
-          <span className="px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 font-semibold border border-amber-200/60 tabular-nums">
-            Cảnh báo: {kpis.attendanceWarningCount} SV
-          </span>
-          <span className="px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 font-semibold border border-blue-200/60 tabular-nums">
-            Tổng: {attendanceResult.total} bản ghi
-          </span>
-        </div>
+      {/* Tiêu đề trang đã có ở DashboardShell; ở đây chỉ mô tả ngắn và tổng thật từ backend. */}
+      <div className="flex flex-col gap-1 text-xs sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-[var(--muted)]">
+          Theo Điều 14 quy chế: vắng từ 15% số tiết bị cảnh báo, vắng trên 20% bị cấm thi.
+        </p>
+        <p className="font-mono tabular-nums text-[var(--muted)]">
+          <span className="text-[var(--danger)]">{kpis.examProhibitedCount} cấm thi</span>
+          {" · "}
+          <span className="text-[var(--warning)]">{kpis.attendanceWarningCount} cảnh báo</span>
+          {" · "}
+          Tổng <span className="text-[var(--text)]">{attendanceResult.total}</span> bản ghi
+        </p>
       </div>
 
       <AttendanceTableClient
@@ -100,11 +92,7 @@ export default async function AttendancePage(props: PageProps) {
 
   return (
     <DashboardShell
-      activeTitle="Theo dõi Điểm danh Học phần"
-      badgeCounts={{
-        attendanceWarning: kpis.examProhibitedCount,
-        thesisActive: kpis.totalTheses,
-      }}
+      activeTitle="Điểm danh"
     >
       <Suspense fallback={<TableLoadingSkeleton rows={12} cols={7} />}>
         <AttendanceDataContent searchParamsPromise={props.searchParams} kpis={kpis} />
