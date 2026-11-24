@@ -80,11 +80,11 @@ export function DataTable<TData, TValue>({
   };
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+    <div className="rounded-md border border-[var(--border)] bg-[var(--surface)] overflow-hidden">
       {/* Error State Banner */}
       {error && (
-        <div className="p-4 bg-rose-50 border-b border-rose-200 text-xs text-rose-700 flex items-center gap-2">
-          <AlertCircle className="w-4 h-4 text-rose-600 flex-shrink-0" />
+        <div className="p-4 bg-[#301e28] border-b border-[#59323e] text-xs text-[var(--danger)] flex items-center gap-2">
+          <AlertCircle className="w-4 h-4 flex-shrink-0" />
           <span>{error}</span>
         </div>
       )}
@@ -93,7 +93,7 @@ export function DataTable<TData, TValue>({
       <div className="overflow-x-auto relative max-h-[calc(100vh-260px)]">
         <table className="w-full text-left text-xs border-collapse">
           {/* Sticky Header */}
-          <thead className="sticky top-0 z-10 bg-slate-50 border-b border-slate-200 select-none shadow-2xs">
+          <thead className="sticky top-0 z-10 bg-[var(--bg)] border-b border-[var(--border)] select-none">
             {table.getHeaderGroups().map((headerGroup) => (
               <tr key={headerGroup.id}>
                 {headerGroup.headers.map((header) => {
@@ -104,14 +104,14 @@ export function DataTable<TData, TValue>({
                   return (
                     <th
                       key={header.id}
-                      className="py-3 px-4 font-semibold text-slate-700 whitespace-nowrap"
+                      className="py-3 px-4 font-semibold text-[var(--text)] whitespace-nowrap"
                     >
                       {header.isPlaceholder ? null : isSortable ? (
                         <button
                           type="button"
                           onClick={() => handleSort(columnId)}
                           disabled={isPending}
-                          className="group inline-flex items-center gap-1.5 hover:text-blue-600 transition-colors cursor-pointer"
+                          className="group inline-flex items-center gap-1.5 hover:text-[var(--primary)] transition-colors cursor-pointer"
                         >
                           <span>
                             {flexRender(
@@ -119,12 +119,12 @@ export function DataTable<TData, TValue>({
                               header.getContext()
                             )}
                           </span>
-                          <span className="text-slate-400 group-hover:text-blue-600 transition-colors">
+                          <span className="text-[var(--muted)] group-hover:text-[var(--primary)] transition-colors">
                             {isSorted ? (
                               currentOrder === 'asc' ? (
-                                <ArrowUp className="w-3.5 h-3.5 text-blue-600" />
+                                <ArrowUp className="w-3.5 h-3.5 text-[var(--primary)]" />
                               ) : (
-                                <ArrowDown className="w-3.5 h-3.5 text-blue-600" />
+                                <ArrowDown className="w-3.5 h-3.5 text-[var(--primary)]" />
                               )
                             ) : (
                               <ArrowUpDown className="w-3.5 h-3.5 opacity-40 group-hover:opacity-100" />
@@ -145,11 +145,11 @@ export function DataTable<TData, TValue>({
           </thead>
 
           {/* Table Body */}
-          <tbody className="divide-y divide-slate-100">
+          <tbody className="divide-y divide-[var(--border)]">
             {isLoading ? (
               // Skeleton loading rows
               Array.from({ length: pageSize || 10 }).map((_, rIdx) => (
-                <tr key={rIdx} className="border-b border-slate-100">
+                <tr key={rIdx} className="border-b border-[var(--border)]">
                   {columns.map((_, cIdx) => (
                     <td key={cIdx} className="py-3.5 px-4">
                       <Skeleton className="h-4 w-4/5" />
@@ -167,7 +167,7 @@ export function DataTable<TData, TValue>({
                   }`}
                 >
                   {row.getVisibleCells().map((cell) => (
-                    <td key={cell.id} className="py-3 px-4 text-slate-700">
+                    <td key={cell.id} className="py-3 px-4 text-[var(--text)]">
                       {flexRender(
                         cell.column.columnDef.cell,
                         cell.getContext()

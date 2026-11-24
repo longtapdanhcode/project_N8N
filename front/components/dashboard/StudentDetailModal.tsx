@@ -1,287 +1,218 @@
 'use client';
 
-import React from 'react';
-import { Student } from '@/types';
-import { Badge, Button } from '@/components/ui';
-import {
-  X,
-  Mail,
-  Phone,
-  GraduationCap,
-  AlertTriangle,
-  Calendar,
-  BookOpen,
-  CheckCircle2,
-  Clock,
-  Sparkles,
-} from 'lucide-react';
+import React, { useEffect, useRef } from 'react';
+import Link from 'next/link';
+import type { MilestoneStatus, Student, StudentStatus } from '@/types';
+import { Badge, type BadgeProps } from '@/components/ui/Badge';
+import { TriangleAlert, X } from 'lucide-react';
 
 interface StudentDetailModalProps {
   student: Student | null;
   onClose: () => void;
-  onSendWarning?: (student: Student) => void;
 }
 
-export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
-  student,
-  onClose,
-  onSendWarning,
-}) => {
+const STUDENT_STATUS: Record<StudentStatus, { label: string; variant: BadgeProps['variant'] }> = {
+  ACTIVE: { label: 'Đang học', variant: 'primary' },
+  WARNING: { label: 'Cảnh báo học vụ', variant: 'danger' },
+  SUSPENDED: { label: 'Tạm dừng học', variant: 'danger' },
+  GRADUATED: { label: 'Đã tốt nghiệp', variant: 'neutral' },
+};
+
+export const MILESTONE_STATUS: Record<MilestoneStatus, { label: string; variant: BadgeProps['variant'] }> = {
+  COMPLETED: { label: 'Hoàn thành', variant: 'primary' },
+  IN_PROGRESS: { label: 'Đang làm', variant: 'neutral' },
+  PENDING: { label: 'Chưa nộp', variant: 'neutral' },
+};
+
+/** Nhãn điểm danh: luôn có chữ, màu chỉ để nhấn mạnh. */
+export function attendanceLabel(s: Pick<Student, 'examProhibited' | 'attendanceWarning'>) {
+  if (s.examProhibited) return { label: 'Cấm thi', variant: 'danger' as const };
+  if (s.attendanceWarning) return { label: 'Cảnh báo', variant: 'warning' as const };
+  return { label: 'Bình thường', variant: 'neutral' as const };
+}
+
+const ICON = { className: 'h-4 w-4 flex-shrink-0', strokeWidth: 1.5 } as const;
+
+export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({ student, onClose }) => {
+  const dialog = useRef<HTMLDialogElement>(null);
+
+  useEffect(() => {
+    if (student) dialog.current?.showModal();
+    else dialog.current?.close();
+  }, [student]);
+
   if (!student) return null;
 
+  const status = STUDENT_STATUS[student.status] ?? { label: student.status, variant: 'neutral' };
+  const attendance = attendanceLabel(student);
+  const absentPct = Math.round((1 - student.attendanceRate) * 100);
+
+  const info: { label: string; value: React.ReactNode }[] = [
+    { label: 'Email', value: <span className="break-all">{student.email}</span> },
+    { label: 'Số điện thoại', value: <span className="font-mono">{student.phone}</span> },
+    { label: 'Chuyên ngành', value: student.major },
+    { label: 'Khóa', value: <span className="font-mono">{student.academicYear}</span> },
+  ];
+
+  const academic: { label: string; value: React.ReactNode; note: React.ReactNode }[] = [
+    {
+      label: 'GPA',
+      value: student.gpa.toFixed(2),
+      note: 'Thang 4.0',
+    },
+    {
+      label: 'Tín chỉ tích lũy',
+      value: (
+        <>
+          {student.creditsEarned}
+          <span className="text-xs font-normal text-[var(--muted)]"> / {student.totalCredits}</span>
+        </>
+      ),
+      note: 'Tín chỉ',
+    },
+    {
+      label: 'Số tiết vắng',
+      value: (
+        <>
+          {student.absentSessions}
+          <span className="text-xs font-normal text-[var(--muted)]"> / {student.totalSessions}</span>
+        </>
+      ),
+      note: (
+        <span className="inline-flex items-center gap-2">
+          <Badge variant={attendance.variant} size="sm">
+            {attendance.label}
+          </Badge>
+          <span className="tabular-nums">{absentPct}% vắng</span>
+        </span>
+      ),
+    },
+  ];
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in duration-150">
-      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
-        {/* Modal Header */}
-        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/70">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-blue-600 text-white font-bold flex items-center justify-center text-sm shadow-xs">
-              {student.fullName
-                .split(' ')
-                .slice(-2)
-                .map((n) => n[0])
-                .join('')}
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-base font-bold text-slate-900">{student.fullName}</h2>
-                <Badge
-                  variant={
-                    student.status === 'ACTIVE'
-                      ? 'success'
-                      : student.status === 'WARNING'
-                      ? 'warning'
-                      : 'neutral'
-                  }
-                >
-                  {student.status === 'ACTIVE'
-                    ? 'Đang học'
-                    : student.status === 'WARNING'
-                    ? 'Cảnh báo học vụ'
-                    : 'Tốt nghiệp'}
-                </Badge>
-              </div>
-              <p className="text-xs text-slate-500 font-mono mt-0.5">
-                MSSV: <span className="font-semibold text-slate-700">{student.studentId}</span> • Lớp: {student.classId}
-              </p>
-            </div>
+    <dialog
+      ref={dialog}
+      className="service-dialog text-xs text-[var(--text)]"
+      style={{
+        width: 'min(720px, calc(100vw - 32px))',
+        maxHeight: '90vh',
+        padding: '24px',
+        overflowY: 'auto',
+      }}
+      onCancel={onClose}
+      onClose={onClose}
+      aria-labelledby="student-modal-title"
+    >
+      <header className="mb-4 flex items-start justify-between gap-4 border-b border-[var(--border)] pb-4">
+        <div className="min-w-0">
+          <p className="mb-1 font-mono text-[11px] tracking-wider text-[var(--muted)]">
+            {student.studentId} · LỚP {student.classId}
+          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 id="student-modal-title" className="text-base font-semibold leading-snug">
+              {student.fullName}
+            </h2>
+            <Badge variant={status.variant} size="sm">
+              {status.label}
+            </Badge>
           </div>
-
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200/50 transition-colors cursor-pointer"
-          >
-            <X className="w-5 h-5" />
-          </button>
         </div>
+        <button
+          onClick={onClose}
+          aria-label="Đóng"
+          className="inline-flex h-9 w-9 flex-shrink-0 cursor-pointer items-center justify-center rounded-md border border-[var(--border)] text-[var(--muted)] hover:border-[var(--primary)] hover:text-[var(--primary)]"
+        >
+          <X {...ICON} />
+        </button>
+      </header>
 
-        {/* Modal Body */}
-        <div className="p-6 overflow-y-auto space-y-6 text-sm">
-          {/* General Information Grid */}
-          <div>
-            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">
-              Thông tin chung
-            </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-              <div className="p-3 rounded-lg border border-slate-200 bg-slate-50/50 flex items-center gap-3">
-                <Mail className="w-4 h-4 text-slate-400 flex-shrink-0" />
-                <div className="truncate">
-                  <span className="text-slate-400 block text-[10px]">Email sinh viên</span>
-                  <span className="font-medium text-slate-700 truncate">{student.email}</span>
-                </div>
-              </div>
-
-              <div className="p-3 rounded-lg border border-slate-200 bg-slate-50/50 flex items-center gap-3">
-                <Phone className="w-4 h-4 text-slate-400 flex-shrink-0" />
-                <div>
-                  <span className="text-slate-400 block text-[10px]">Số điện thoại</span>
-                  <span className="font-medium text-slate-700">{student.phone}</span>
-                </div>
-              </div>
-
-              <div className="p-3 rounded-lg border border-slate-200 bg-slate-50/50 flex items-center gap-3">
-                <GraduationCap className="w-4 h-4 text-slate-400 flex-shrink-0" />
-                <div>
-                  <span className="text-slate-400 block text-[10px]">Chuyên ngành</span>
-                  <span className="font-medium text-slate-700">{student.major}</span>
-                </div>
-              </div>
-
-              <div className="p-3 rounded-lg border border-slate-200 bg-slate-50/50 flex items-center gap-3">
-                <Calendar className="w-4 h-4 text-slate-400 flex-shrink-0" />
-                <div>
-                  <span className="text-slate-400 block text-[10px]">Khóa học</span>
-                  <span className="font-medium text-slate-700">{student.academicYear}</span>
-                </div>
-              </div>
-            </div>
+      <dl className="mb-4 grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2">
+        {info.map(({ label, value }) => (
+          <div key={label}>
+            <dt className="text-[11px] text-[var(--muted)]">{label}</dt>
+            <dd className="mt-0.5 font-medium">{value}</dd>
           </div>
+        ))}
+      </dl>
 
-          {/* Academic & Attendance Status */}
-          <div>
-            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">
-              Học vụ & Tình trạng điểm danh
-            </h3>
-            <div className="grid grid-cols-3 gap-3 text-center">
-              <div className="p-3 rounded-xl border border-slate-200 bg-white shadow-2xs">
-                <span className="text-[11px] text-slate-500 block mb-1">Điểm GPA</span>
-                <span className="text-lg font-bold text-slate-900">{student.gpa.toFixed(2)}</span>
-                <span className="text-[10px] text-slate-400 block mt-0.5">Thang 4.0</span>
-              </div>
-
-              <div className="p-3 rounded-xl border border-slate-200 bg-white shadow-2xs">
-                <span className="text-[11px] text-slate-500 block mb-1">Tích lũy tín chỉ</span>
-                <span className="text-lg font-bold text-slate-900">
-                  {student.creditsEarned}
-                  <span className="text-xs text-slate-400 font-normal"> / {student.totalCredits}</span>
-                </span>
-                <span className="text-[10px] text-slate-400 block mt-0.5">Tín chỉ</span>
-              </div>
-
-              <div
-                className={`p-3 rounded-xl border shadow-2xs ${
-                  student.examProhibited
-                    ? 'border-rose-200 bg-rose-50/60'
-                    : student.attendanceWarning
-                    ? 'border-amber-200 bg-amber-50/60'
-                    : 'border-slate-200 bg-white'
-                }`}
-              >
-                <span className="text-[11px] text-slate-500 block mb-1">Số tiết vắng</span>
-                <span
-                  className={`text-lg font-bold ${
-                    student.examProhibited
-                      ? 'text-rose-600'
-                      : student.attendanceWarning
-                      ? 'text-amber-600'
-                      : 'text-slate-900'
-                  }`}
-                >
-                  {student.absentSessions}
-                  <span className="text-xs font-normal text-slate-400"> / {student.totalSessions}</span>
-                </span>
-                <span className="text-[10px] block font-medium mt-0.5">
-                  {student.examProhibited ? (
-                    <span className="text-rose-600 font-bold">Cấm thi (&gt; 20%)</span>
-                  ) : student.attendanceWarning ? (
-                    <span className="text-amber-600 font-bold">Cảnh báo (≥ 15%)</span>
-                  ) : (
-                    <span className="text-emerald-600 font-medium">Bình thường</span>
-                  )}
-                </span>
-              </div>
+      <section className="border-t border-[var(--border)] pt-4">
+        <h3 className="mb-3 text-xs font-semibold">Học vụ và điểm danh</h3>
+        <dl className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-3">
+          {academic.map(({ label, value, note }) => (
+            <div key={label}>
+              <dt className="text-[11px] text-[var(--muted)]">{label}</dt>
+              <dd className="mt-0.5 font-mono text-lg font-semibold tabular-nums">{value}</dd>
+              <dd className="mt-0.5 text-[11px] text-[var(--muted)]">{note}</dd>
             </div>
+          ))}
+        </dl>
 
-            {student.examProhibited && (
-              <div className="mt-3 p-3 rounded-lg bg-rose-50 border border-rose-200 text-xs text-rose-800 flex items-start gap-2.5">
-                <AlertTriangle className="w-4 h-4 text-rose-600 flex-shrink-0 mt-0.5" />
-                <div>
-                  <span className="font-bold">Cảnh báo vi phạm Quy chế đào tạo VKU (Điều 14):</span>
-                  <p className="mt-0.5 leading-relaxed">
-                    Sinh viên đã vắng quá 20% tổng số tiết học phần. Không đủ điều kiện dự thi kết thúc học phần và nhận điểm F nếu không có quyết định bổ sung của Hội đồng khoa.
-                  </p>
-                </div>
-              </div>
-            )}
+        {student.examProhibited ? (
+          <p className="mt-3 flex items-start gap-2 text-[var(--danger)]" role="note">
+            <TriangleAlert {...ICON} className={`${ICON.className} mt-px`} />
+            Vắng quá 20% số tiết (Điều 14): không đủ điều kiện dự thi kết thúc học phần, trừ khi Hội đồng
+            khoa có quyết định khác.
+          </p>
+        ) : student.attendanceWarning ? (
+          <p className="mt-3 text-[var(--muted)]">
+            Vắng từ 15% số tiết. Gửi thông báo cho sinh viên bằng Quét cảnh báo ở{' '}
+            <Link href="/teacher" className="text-[var(--primary)] underline-offset-2 hover:underline">
+              Tổng quan
+            </Link>
+            .
+          </p>
+        ) : null}
+      </section>
+
+      {student.thesis && (
+        <section className="mt-4 border-t border-[var(--border)] pt-4">
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <h3 className="text-xs font-semibold">Đồ án tốt nghiệp</h3>
+            <span className="font-mono tabular-nums text-[var(--muted)]">
+              Tiến độ <span className="text-[var(--primary)]">{student.thesis.progressPercent}%</span>
+            </span>
           </div>
-
-          {/* Thesis Section (If applicable) */}
-          {student.thesis && (
-            <div>
-              <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">
-                Đồ án tốt nghiệp & Phản hồi AI
-              </h3>
-              <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 space-y-4">
-                <div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-blue-700 flex items-center gap-1.5">
-                      <BookOpen className="w-3.5 h-3.5" /> Đề tài:
-                    </span>
-                    <Badge variant="primary">Tiến độ: {student.thesis.progressPercent}%</Badge>
-                  </div>
-                  <h4 className="text-sm font-semibold text-slate-900 mt-1">
-                    {student.thesis.title}
-                  </h4>
-                  <p className="text-xs text-slate-500 mt-1">
-                    GVHD: <span className="font-medium text-slate-700">{student.thesis.advisorName}</span>
-                  </p>
-                </div>
-
-                {/* Milestones list */}
-                <div className="space-y-2 pt-2 border-t border-slate-200/80">
-                  <span className="text-xs font-semibold text-slate-700 block">
-                    Cột mốc thực hiện (Milestones):
-                  </span>
-                  {student.thesis.milestones.map((m, idx) => (
-                    <div
-                      key={m._id}
-                      className="p-2.5 rounded-lg bg-white border border-slate-200 text-xs space-y-1"
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="font-medium text-slate-800 flex items-center gap-2">
-                          {m.status === 'COMPLETED' ? (
-                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                          ) : (
-                            <Clock className="w-3.5 h-3.5 text-amber-500" />
-                          )}
-                          M{idx + 1}: {m.title}
-                        </span>
-                        <Badge
-                          variant={
-                            m.status === 'COMPLETED'
-                              ? 'success'
-                              : m.status === 'IN_PROGRESS'
-                              ? 'warning'
-                              : 'neutral'
-                          }
-                          size="sm"
-                        >
-                          {m.status === 'COMPLETED'
-                            ? 'Hoàn thành'
-                            : m.status === 'IN_PROGRESS'
-                            ? 'Đang làm'
-                            : 'Chờ duyệt'}
-                        </Badge>
-                      </div>
-
-                      {m.aiFeedback && (
-                        <div className="p-2 rounded bg-blue-50/60 border border-blue-100 text-[11px] text-blue-900 flex items-start gap-1.5 mt-1">
-                          <Sparkles className="w-3.5 h-3.5 text-blue-600 flex-shrink-0 mt-0.5" />
-                          <span>
-                            <strong>AI Feedback:</strong> {m.aiFeedback}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
+          <p className="font-medium leading-snug">{student.thesis.title}</p>
+          {student.thesis.advisorName && (
+            <p className="mt-1 text-[var(--muted)]">GVHD: {student.thesis.advisorName}</p>
           )}
-        </div>
+          <ol className="mt-3 divide-y divide-[var(--border)] border-y border-[var(--border)]">
+            {student.thesis.milestones.map((m, idx) => {
+              const ms = MILESTONE_STATUS[m.status] ?? { label: m.status, variant: 'neutral' };
+              return (
+                <li key={m._id} className="py-2.5">
+                  <div className="flex items-center justify-between gap-3">
+                    <span>
+                      <span className="mr-2 font-mono text-[var(--muted)]">M{idx + 1}</span>
+                      {m.title}
+                    </span>
+                    <Badge variant={ms.variant} size="sm">
+                      {ms.label}
+                    </Badge>
+                  </div>
+                  {m.aiFeedback && (
+                    <p className="mt-1 pl-7 text-[11px] leading-relaxed text-[var(--muted)]">
+                      <span className="text-[var(--text)]">Nhận xét AI:</span> {m.aiFeedback}
+                    </p>
+                  )}
+                </li>
+              );
+            })}
+          </ol>
+        </section>
+      )}
 
-        {/* Modal Footer */}
-        <div className="px-6 py-3.5 border-t border-slate-200 bg-slate-50 flex items-center justify-between">
-          <div className="text-xs text-slate-500">
-            Ngày khởi tạo: {new Date(student.createdAt).toLocaleDateString('vi-VN')}
-          </div>
-          <div className="flex items-center gap-2">
-            {student.attendanceWarning && onSendWarning && (
-              <Button
-                variant="danger"
-                size="sm"
-                onClick={() => onSendWarning(student)}
-                leftIcon={<AlertTriangle className="w-3.5 h-3.5" />}
-              >
-                Gửi cảnh báo n8n
-              </Button>
-            )}
-            <Button variant="secondary" size="sm" onClick={onClose}>
-              Đóng
-            </Button>
-          </div>
-        </div>
-      </div>
-    </div>
+      <footer className="mt-4 flex items-center justify-between gap-3 border-t border-[var(--border)] pt-4">
+        <span className="text-[11px] text-[var(--muted)]">
+          Tạo hồ sơ <span className="tabular-nums">{new Date(student.createdAt).toLocaleDateString('vi-VN')}</span>
+        </span>
+        <button
+          onClick={onClose}
+          className="min-h-10 cursor-pointer rounded-md border border-[var(--border)] px-4 text-xs font-medium hover:border-[var(--primary)] hover:text-[var(--primary)]"
+        >
+          Đóng
+        </button>
+      </footer>
+    </dialog>
   );
 };

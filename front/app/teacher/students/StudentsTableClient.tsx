@@ -5,9 +5,10 @@ import { ColumnDef } from '@tanstack/react-table';
 import { Student } from '@/types';
 import { DataTable, DataTableToolbar } from '@/components/table';
 import { Badge } from '@/components/ui/Badge';
-import { StudentDetailModal } from '@/components/dashboard/StudentDetailModal';
+import { Toast } from '@/components/ui/Toast';
+import { StudentDetailModal, attendanceLabel } from '@/components/dashboard/StudentDetailModal';
 import { exportStudentsToCSV } from '@/lib/export';
-import { CheckCircle2 } from 'lucide-react';
+import { FileSearch } from 'lucide-react';
 
 interface StudentsTableClientProps {
   initialData: Student[];
@@ -36,14 +37,9 @@ export const StudentsTableClient: React.FC<StudentsTableClientProps> = ({
 
   const handleExport = () => {
     exportStudentsToCSV(initialData);
-    showToast(`Đã xuất ${initialData.length} sinh viên ra file CSV thành công!`);
+    showToast(`Đã xuất ${initialData.length} sinh viên của trang này ra tệp CSV.`);
   };
 
-  const handleSendWarning = (student: Student) => {
-    showToast(`Đã gửi cảnh báo Điều 14 tới n8n webhook cho ${student.fullName} (${student.studentId})!`);
-  };
-
-  // TanStack Table Column Definitions
   const columns = useMemo<ColumnDef<Student>[]>(
     () => [
       {
@@ -51,83 +47,50 @@ export const StudentsTableClient: React.FC<StudentsTableClientProps> = ({
         accessorKey: 'studentId',
         header: 'MSSV',
         cell: ({ row }) => (
-          <span className="font-mono font-semibold text-slate-900 tracking-tight">
-            {row.original.studentId}
-          </span>
+          <span className="font-mono text-[var(--text)]">{row.original.studentId}</span>
         ),
       },
       {
         id: 'fullName',
         accessorKey: 'fullName',
         header: 'Họ và tên',
-        cell: ({ row }) => {
-          const initials = row.original.fullName
-            .split(' ')
-            .slice(-1)[0][0];
-          return (
-            <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 rounded-full bg-blue-600 text-white font-bold flex items-center justify-center text-[11px] shadow-2xs flex-shrink-0">
-                {initials}
-              </div>
-              <div className="flex flex-col min-w-0">
-                <span className="font-semibold text-slate-800 truncate">
-                  {row.original.fullName}
-                </span>
-                <span className="text-[11px] text-slate-400 truncate">
-                  {row.original.email}
-                </span>
-              </div>
-            </div>
-          );
-        },
+        cell: ({ row }) => (
+          <div className="flex min-w-0 flex-col">
+            <span className="truncate font-semibold leading-snug text-[var(--text)]">
+              {row.original.fullName}
+            </span>
+            <span className="mt-0.5 truncate text-[11px] text-[var(--muted)]">{row.original.email}</span>
+          </div>
+        ),
       },
       {
         id: 'classId',
         accessorKey: 'classId',
-        header: 'Lớp sinh hoạt',
+        header: 'Lớp',
         cell: ({ row }) => (
-          <span className="font-mono text-slate-700 bg-slate-100 border border-slate-200/80 px-2 py-0.5 rounded text-[11px]">
-            {row.original.classId}
-          </span>
+          <span className="font-mono text-xs text-[var(--muted)]">{row.original.classId}</span>
         ),
       },
       {
         id: 'attendanceRate',
         accessorKey: 'attendanceRate',
-        header: () => <div className="text-right">Tỷ lệ điểm danh</div>,
+        header: () => <div className="text-right">Điểm danh</div>,
         cell: ({ row }) => {
-          const { attendanceRate, absentSessions, totalSessions, attendanceWarning, examProhibited } =
-            row.original;
-          const pct = Math.round(attendanceRate * 100);
-
+          const { attendanceRate, absentSessions, totalSessions } = row.original;
+          const state = attendanceLabel(row.original);
           return (
-            <div className="text-right tabular-nums">
-              {examProhibited ? (
-                <div className="inline-flex flex-col items-end">
-                  <Badge variant="danger" dot size="sm">
-                    Cấm thi ({absentSessions}/{totalSessions}t)
+            <div className="flex flex-col items-end gap-1 tabular-nums">
+              <span className="font-mono text-xs text-[var(--text)]">{Math.round(attendanceRate * 100)}% có mặt</span>
+              <span className="flex items-center gap-2 text-[11px] text-[var(--muted)]">
+                <span className="font-mono">
+                  {absentSessions}/{totalSessions} tiết vắng
+                </span>
+                {state.variant !== 'neutral' && (
+                  <Badge variant={state.variant} size="sm">
+                    {state.label}
                   </Badge>
-                  <span className="text-[10px] text-rose-600 font-bold mt-0.5">
-                    {pct}% có mặt
-                  </span>
-                </div>
-              ) : attendanceWarning ? (
-                <div className="inline-flex flex-col items-end">
-                  <Badge variant="warning" dot size="sm">
-                    Cảnh báo ({absentSessions}t vắng)
-                  </Badge>
-                  <span className="text-[10px] text-amber-600 font-bold mt-0.5">
-                    {pct}% có mặt
-                  </span>
-                </div>
-              ) : (
-                <div className="inline-flex flex-col items-end">
-                  <span className="font-bold text-slate-900 text-xs">{pct}%</span>
-                  <span className="text-[10px] text-slate-400">
-                    {absentSessions}/{totalSessions}t vắng
-                  </span>
-                </div>
-              )}
+                )}
+              </span>
             </div>
           );
         },
@@ -135,33 +98,22 @@ export const StudentsTableClient: React.FC<StudentsTableClientProps> = ({
       {
         id: 'thesisProgress',
         accessorFn: (row) => (row.thesis ? row.thesis.progressPercent : -1),
-        header: () => <div className="text-right">Trạng thái đồ án</div>,
+        header: () => <div className="text-right">Đồ án</div>,
         cell: ({ row }) => {
           const thesis = row.original.thesis;
           if (!thesis) {
-            return (
-              <div className="text-right tabular-nums">
-                <span className="text-slate-400 text-xs">—</span>
-              </div>
-            );
+            return <div className="text-right text-xs text-[var(--muted)]">Chưa có</div>;
           }
-
-          const isEligible = thesis.defenseStatus === 'ELIGIBLE';
-
           return (
-            <div className="text-right tabular-nums">
-              <div className="inline-flex flex-col items-end">
-                <span
-                  className={`text-xs font-bold ${
-                    isEligible ? 'text-emerald-600' : 'text-blue-600'
-                  }`}
-                >
-                  {thesis.progressPercent}%
-                </span>
-                <span className="text-[10px] text-slate-400">
-                  {isEligible ? 'Đủ điều kiện BV' : 'Đang thực hiện'}
-                </span>
-              </div>
+            <div className="flex flex-col items-end tabular-nums">
+              <span className="font-mono text-xs text-[var(--text)]">{thesis.progressPercent}%</span>
+              <span className="text-[11px] text-[var(--muted)]">
+                {thesis.defenseStatus === 'ELIGIBLE'
+                  ? 'Đủ điều kiện bảo vệ'
+                  : thesis.defenseStatus === 'DEFENDED'
+                    ? 'Đã bảo vệ'
+                    : 'Đang thực hiện'}
+              </span>
             </div>
           );
         },
@@ -177,9 +129,11 @@ export const StudentsTableClient: React.FC<StudentsTableClientProps> = ({
                 e.stopPropagation();
                 setSelectedStudent(row.original);
               }}
-              className="text-xs font-semibold text-blue-600 hover:text-blue-800 hover:underline cursor-pointer"
+              aria-label={`Xem hồ sơ ${row.original.fullName}`}
+              className="inline-flex min-h-8 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-md px-2 text-xs font-medium text-[var(--primary)] hover:bg-[var(--primary-soft)]"
             >
-              Xem
+              <FileSearch className="h-3.5 w-3.5" strokeWidth={1.5} />
+              <span>Xem hồ sơ</span>
             </button>
           </div>
         ),
@@ -190,24 +144,16 @@ export const StudentsTableClient: React.FC<StudentsTableClientProps> = ({
 
   return (
     <>
-      {/* Toast Notification */}
-      {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-xl border border-slate-700 flex items-center gap-3 text-xs animate-in slide-in-from-bottom-2 duration-200">
-          <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
-          <span>{toastMessage}</span>
-        </div>
-      )}
+      {toastMessage && <Toast message={toastMessage} />}
 
-      {/* Search and Filters Toolbar */}
       <DataTableToolbar
-        searchPlaceholder="Tìm kiếm theo MSSV, Họ tên, Lớp học... (Debounced)"
+        searchPlaceholder="Tìm theo MSSV, họ tên, email hoặc lớp"
         classList={classList}
         showClassFilter={true}
         onExport={handleExport}
         exportLabel="Xuất CSV sinh viên"
       />
 
-      {/* TanStack Table */}
       <DataTable
         columns={columns}
         data={initialData}
@@ -215,17 +161,12 @@ export const StudentsTableClient: React.FC<StudentsTableClientProps> = ({
         page={page}
         pageSize={pageSize}
         totalPages={totalPages}
-        emptyTitle="Không tìm thấy sinh viên nào"
-        emptyDescription="Không có sinh viên nào phù hợp với bộ lọc và từ khóa tìm kiếm trên server."
+        emptyTitle="Không có sinh viên phù hợp"
+        emptyDescription="Thử bỏ từ khóa tìm kiếm hoặc chọn lớp khác."
         onRowClick={(student) => setSelectedStudent(student)}
       />
 
-      {/* Detail Modal */}
-      <StudentDetailModal
-        student={selectedStudent}
-        onClose={() => setSelectedStudent(null)}
-        onSendWarning={handleSendWarning}
-      />
+      <StudentDetailModal student={selectedStudent} onClose={() => setSelectedStudent(null)} />
     </>
   );
 };

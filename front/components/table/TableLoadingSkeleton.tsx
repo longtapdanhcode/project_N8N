@@ -6,12 +6,12 @@ export const TableLoadingSkeleton: React.FC<{ rows?: number; cols?: number }> = 
   cols = 6,
 }) => {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white overflow-hidden space-y-0">
-      <div className="p-3.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
-        <Skeleton className="h-8 w-64 rounded-lg" />
-        <Skeleton className="h-8 w-40 rounded-lg" />
+    <div role="status" aria-label="Đang tải dữ liệu" className="overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface)]">
+      <div className="p-3.5 border-b border-[var(--border)] flex items-center justify-between">
+        <Skeleton className="h-8 w-64 rounded-md" />
+        <Skeleton className="h-8 w-40 rounded-md" />
       </div>
-      <div className="divide-y divide-slate-100 p-2">
+      <div className="divide-y divide-[var(--border)] p-2">
         {Array.from({ length: rows }).map((_, rIdx) => (
           <div key={rIdx} className="py-3.5 px-4 flex items-center justify-between gap-4">
             {Array.from({ length: cols }).map((_, cIdx) => (

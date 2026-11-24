@@ -26,7 +26,6 @@ export function DashboardShell({
 }: {
   children: ReactNode;
   activeTitle: string;
-  badgeCounts?: { attendanceWarning?: number; thesisActive?: number };
 }) {
   const path = usePathname();
   const [error, setError] = useState("");

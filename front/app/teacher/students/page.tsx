@@ -1,6 +1,6 @@
 import { connection } from "next/server";
 import React, { Suspense } from 'react';
-import { getStudents, getClassList, getDashboardKPIs } from '@/lib/api';
+import { getStudents, getClassList } from '@/lib/api';
 import { DashboardShell } from '@/components/layout/DashboardShell';
 import { TableLoadingSkeleton } from '@/components/table';
 import { StudentsTableClient } from './StudentsTableClient';
@@ -19,7 +19,6 @@ interface PageProps {
 
 async function StudentsDataContent({
   searchParamsPromise,
-  kpis,
 }: {
   searchParamsPromise: Promise<{
     page?: string;
@@ -28,11 +27,6 @@ async function StudentsDataContent({
     sort?: string;
     order?: 'asc' | 'desc';
   }>;
-  kpis: {
-    activeStudents: number;
-    averageGpa: number;
-    totalStudents: number;
-  };
 }) {
   const searchParams = await searchParamsPromise;
   const page = Math.max(1, Number(searchParams.page) || 1);
@@ -55,26 +49,14 @@ async function StudentsDataContent({
 
   return (
     <div className="space-y-4">
-      <div className="p-4 rounded-xl border border-slate-200 bg-white flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
-        <div>
-          <h2 className="text-sm font-bold text-slate-900">
-            Quản lý Hồ sơ Sinh viên (Server-side TanStack Table)
-          </h2>
-          <p className="text-slate-500 mt-0.5">
-            Phân trang 20 sinh viên/trang, sắp xếp và lọc được thực thi hoàn toàn trên server qua searchParams.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 font-semibold border border-emerald-200/60 tabular-nums">
-            Đang học: {kpis.activeStudents} SV
-          </span>
-          <span className="px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 font-semibold border border-blue-200/60 tabular-nums">
-            GPA TB: {kpis.averageGpa.toFixed(2)}
-          </span>
-          <span className="px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 font-semibold border border-slate-200 tabular-nums">
-            Tổng: {studentsResult.total} sinh viên
-          </span>
-        </div>
+      {/* Tiêu đề trang đã có ở DashboardShell; ở đây chỉ mô tả ngắn và tổng thật từ backend. */}
+      <div className="flex flex-col gap-1 text-xs sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-[var(--muted)]">
+          Hồ sơ sinh viên theo lớp sinh hoạt. Bấm một dòng để xem điểm, điểm danh và đồ án.
+        </p>
+        <p className="font-mono tabular-nums text-[var(--muted)]">
+          Tổng <span className="text-[var(--text)]">{studentsResult.total}</span> sinh viên
+        </p>
       </div>
 
       <StudentsTableClient
@@ -91,18 +73,13 @@ async function StudentsDataContent({
 
 export default async function StudentsPage(props: PageProps) {
   await connection();
-  const kpis = await getDashboardKPIs();
 
   return (
     <DashboardShell
-      activeTitle="Danh sách Sinh viên VKU"
-      badgeCounts={{
-        attendanceWarning: kpis.examProhibitedCount,
-        thesisActive: kpis.totalTheses,
-      }}
+      activeTitle="Sinh viên"
     >
       <Suspense fallback={<TableLoadingSkeleton rows={12} cols={6} />}>
-        <StudentsDataContent searchParamsPromise={props.searchParams} kpis={kpis} />
+        <StudentsDataContent searchParamsPromise={props.searchParams} />
       </Suspense>
     </DashboardShell>
   );

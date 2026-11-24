@@ -6,6 +6,27 @@ export interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
   size?: 'sm' | 'md';
 }
 
+/*
+ * Màu theo quy tắc thiết kế: cyan cho trạng thái tốt/đang chọn, đỏ cho lỗi và cấm thi,
+ * vàng nhạt chỉ cho cảnh báo điểm danh. Chữ trong badge luôn nói rõ trạng thái,
+ * nên không phụ thuộc vào màu.
+ */
+const variantStyles = {
+  primary: 'border-[#25515c] bg-[var(--primary-soft)] text-[var(--primary)]',
+  success: 'border-[#25515c] bg-[var(--primary-soft)] text-[var(--primary)]',
+  warning: 'border-[var(--warning-border)] bg-[var(--warning-soft)] text-[var(--warning)]',
+  danger: 'border-[#59323e] bg-[#301e28] text-[var(--danger)]',
+  neutral: 'border-[var(--border)] bg-[var(--bg)] text-[var(--muted)]',
+};
+
+const dotStyles = {
+  primary: 'bg-[var(--primary)]',
+  success: 'bg-[var(--primary)]',
+  warning: 'bg-[var(--warning)]',
+  danger: 'bg-[var(--danger)]',
+  neutral: 'bg-[var(--muted)]',
+};
+
 export const Badge: React.FC<BadgeProps> = ({
   children,
   variant = 'neutral',
@@ -19,30 +40,12 @@ export const Badge: React.FC<BadgeProps> = ({
     md: 'text-xs px-2.5 py-0.5',
   };
 
-  const variantStyles = {
-    // Single accent: VKU Blue tint
-    primary: 'bg-blue-50 text-blue-700 border-blue-200/80',
-    // Soft semantic colors
-    success: 'bg-emerald-50 text-emerald-700 border-emerald-200/80',
-    warning: 'bg-amber-50 text-amber-700 border-amber-200/80',
-    danger: 'bg-rose-50 text-rose-700 border-rose-200/80',
-    neutral: 'bg-slate-100 text-slate-700 border-slate-200',
-  };
-
-  const dotStyles = {
-    primary: 'bg-blue-600',
-    success: 'bg-emerald-600',
-    warning: 'bg-amber-600',
-    danger: 'bg-rose-600',
-    neutral: 'bg-slate-500',
-  };
-
   return (
     <span
-      className={`inline-flex items-center gap-1.5 font-medium rounded-full border ${sizeStyles[size]} ${variantStyles[variant]} select-none transition-colors ${className}`}
+      className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-md border font-medium ${sizeStyles[size]} ${variantStyles[variant]} ${className}`}
       {...props}
     >
-      {dot && <span className={`w-1.5 h-1.5 rounded-full ${dotStyles[variant]}`} />}
+      {dot && <span aria-hidden className={`h-1.5 w-1.5 rounded-full ${dotStyles[variant]}`} />}
       {children}
     </span>
   );

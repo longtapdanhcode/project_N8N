@@ -4,7 +4,6 @@ import { DashboardShell } from "@/components/layout/DashboardShell";
 import { TableLoadingSkeleton } from "@/components/table";
 import { SubmissionsTableClient } from "./SubmissionsTableClient";
 import { fetchSubmissions } from "@/lib/submissions";
-import { getDashboardKPIs } from "@/lib/api";
 
 export const instant = false;
 
@@ -70,15 +69,10 @@ async function SubmissionsDataContent({
 
 export default async function SubmissionsPage(props: PageProps) {
   await connection();
-  const kpis = await getDashboardKPIs();
 
   return (
     <DashboardShell
-      activeTitle="Quản lý Bài tập & Đánh giá AI"
-      badgeCounts={{
-        attendanceWarning: kpis.examProhibitedCount,
-        thesisActive: kpis.totalTheses,
-      }}
+      activeTitle="Bài tập"
     >
       <Suspense fallback={<TableLoadingSkeleton rows={10} cols={6} />}>
         <SubmissionsDataContent searchParamsPromise={props.searchParams} />
