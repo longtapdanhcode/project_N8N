@@ -1,5 +1,5 @@
 {
-  "name": "VKU - Assignment Analyzed (12 nodes)",
+  "name": "VKU - Assignment Analyzed (chống trùng)",
   "nodes": [
     {
       "parameters": {
@@ -22,7 +22,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const crypto = require('crypto');\nconst item = $input.first();\nconst signature = item.json.headers?.['x-signature'];\nconst secret = $env.WEBHOOK_SECRET;\nlet valid = false;\nlet body = {};\nif (secret && typeof signature === 'string' && /^[0-9a-f]{64}$/i.test(signature) && item.binary?.data) {\n  const raw = await this.helpers.getBinaryDataBuffer(0, 'data');\n  const expected = crypto.createHmac('sha256', secret).update(raw).digest();\n  valid = crypto.timingSafeEqual(Buffer.from(signature, 'hex'), expected);\n  if (valid) {\n    try { body = JSON.parse(raw.toString('utf8')); } catch { valid = false; }\n  }\n}\nreturn [{ json: { valid, body } }];"
+        "jsCode": "const crypto = require('crypto');\nconst item = $input.first();\n// Backend gửi \"sha256=<hex>\"; chấp nhận cả dạng chỉ có hex.\nconst header = item.json.headers?.['x-signature'];\nconst signature = typeof header === 'string' ? header.replace(/^sha256=/i, '').trim() : '';\nconst secret = $env.WEBHOOK_SECRET;\nlet valid = false;\nlet body = {};\nif (secret && typeof signature === 'string' && /^[0-9a-f]{64}$/i.test(signature) && item.binary?.data) {\n  const raw = await this.helpers.getBinaryDataBuffer(0, 'data');\n  const expected = crypto.createHmac('sha256', secret).update(raw).digest();\n  valid = crypto.timingSafeEqual(Buffer.from(signature, 'hex'), expected);\n  if (valid) {\n    try { body = JSON.parse(raw.toString('utf8')); } catch { valid = false; }\n  }\n}\nreturn [{ json: { valid, body } }];"
       },
       "id": "86e8082e-ae45-44c0-b656-11324e8a83c2",
       "name": "Kiểm tra HMAC",
@@ -202,12 +202,13 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1200,
+        1920,
         0
       ],
       "retryOnFail": true,
       "maxTries": 3,
-      "waitBetweenTries": 2000
+      "waitBetweenTries": 2000,
+      "onError": "continueErrorOutput"
     },
     {
       "parameters": {
@@ -227,7 +228,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1440,
+        2160,
         0
       ],
       "retryOnFail": true,
@@ -238,7 +239,8 @@
           "id": "HSKBHWn7fviKy8k9",
           "name": "Header Auth account"
         }
-      }
+      },
+      "onError": "continueErrorOutput"
     },
     {
       "parameters": {
@@ -258,9 +260,10 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1680,
+        2400,
         0
-      ]
+      ],
+      "onError": "continueErrorOutput"
     },
     {
       "parameters": {
@@ -280,9 +283,10 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1920,
+        2640,
         0
-      ]
+      ],
+      "onError": "continueErrorOutput"
     },
     {
       "parameters": {
@@ -297,8 +301,278 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
       "position": [
-        2160,
+        3360,
         0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Chống trùng theo X-Delivery-Id: backend giữ nguyên mã này qua các lần gửi lại.\n// Mã chỉ có tác dụng khi bộ sưu tập n8n_deliveries có chỉ mục duy nhất trên deliveryId\n// (backend tự tạo khi khởi động, xem n8n/README.md).\nconst SCOPE = 'assignment-analyzed';\nconst LEASE_MS = 10 * 60 * 1000; // quá hạn này mà chưa xong thì coi như bỏ dở, cho xử lý lại\nconst raw = String($('Nhận sự kiện').first().json.headers?.['x-delivery-id'] ?? '').trim();\nconst valid = /^[A-Za-z0-9:._-]{1,200}$/.test(raw);\nconst now = Date.now();\nreturn [{ json: {\n  // Thiếu mã (backend cũ) thì dùng mã của lần chạy này: vẫn chạy, chỉ không bỏ trùng được.\n  deliveryId: SCOPE + ':' + (valid ? raw : 'no-id:' + $execution.id),\n  scope: SCOPE,\n  status: 'processing',\n  claimedAt: new Date(now).toISOString(),\n  expiresAt: new Date(now + LEASE_MS).toISOString(),\n} }];"
+      },
+      "id": "7dbaa277-4bdb-5de3-b054-4d66c343a163",
+      "name": "Chuẩn bị chống trùng",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "collection": "n8n_deliveries",
+        "fields": "deliveryId,scope,status,claimedAt,expiresAt",
+        "options": {
+          "dateFields": "claimedAt,expiresAt"
+        }
+      },
+      "id": "6f491130-a9f0-5ca8-bd5a-8c88340de42f",
+      "name": "Đánh dấu đang xử lý",
+      "type": "n8n-nodes-base.mongoDb",
+      "typeVersion": 1.2,
+      "position": [
+        1440,
+        0
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "b88fa849-7b15-5c5c-bc0a-8b17108fcdda",
+              "leftValue": "={{ !$json.error }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "b609ae5c-21a1-544b-be93-a1af0fd7689f",
+      "name": "Lần đầu nhận?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1680,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "find",
+        "collection": "n8n_deliveries",
+        "query": "={{ JSON.stringify({ deliveryId: $('Chuẩn bị chống trùng').first().json.deliveryId }) }}",
+        "options": {
+          "limit": 1
+        }
+      },
+      "id": "f2bf84ae-cccc-5ce6-9c77-517ede047ec6",
+      "name": "Tìm lần gửi trước",
+      "type": "n8n-nodes-base.mongoDb",
+      "typeVersion": 1.2,
+      "position": [
+        1920,
+        240
+      ],
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "f79b700a-3bad-5566-9461-9c0c3d0f6693",
+                    "leftValue": "={{ $json.status }}",
+                    "rightValue": "done",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "done"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "7c8748e8-ee44-52af-ad40-15352a7a44a6",
+                    "leftValue": "={{ $json.status }}",
+                    "rightValue": "processing",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "processing"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "id": "eaa88d93-144b-53aa-8fd2-530318a7ddbc",
+      "name": "Lần trước ra sao?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        2160,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json.response ?? { ok: true, duplicate: true }) }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "0635d975-1e74-597e-888f-4d402ed648d4",
+      "name": "Trả kết quả lần trước",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        2400,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: false, error: 'delivery_in_progress' }) }}",
+        "options": {
+          "responseCode": 409
+        }
+      },
+      "id": "eda99d18-e7a2-5bc6-852a-26486e4eb0ed",
+      "name": "Trả 409 đang xử lý",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        2400,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: false, error: 'dedupe_store_unavailable' }) }}",
+        "options": {
+          "responseCode": 503
+        }
+      },
+      "id": "186d3325-3d5d-505c-8bbb-cd305bf1c831",
+      "name": "Trả 503 chưa kiểm tra được",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        2400,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Giữ 7 ngày để lần gửi lại trong thời gian đó nhận đúng kết quả lần đầu.\nconst KEEP_MS = 7 * 24 * 60 * 60 * 1000;\nreturn [{ json: {\n  deliveryId: $('Chuẩn bị chống trùng').first().json.deliveryId,\n  status: 'done',\n  expiresAt: new Date(Date.now() + KEEP_MS).toISOString(),\n  response: { ok: true, submissionId: $('Nhận sự kiện').first().json.body.submissionId },\n} }];"
+      },
+      "id": "25708dce-d528-5c01-8c9e-2773ff5354ec",
+      "name": "Chuẩn bị đánh dấu xong",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2640,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "collection": "n8n_deliveries",
+        "updateKey": "deliveryId",
+        "fields": "deliveryId,status,expiresAt,response",
+        "options": {
+          "dateFields": "expiresAt"
+        }
+      },
+      "id": "80683f26-8af9-5e27-ae63-12b582f19571",
+      "name": "Đánh dấu đã xử lý",
+      "type": "n8n-nodes-base.mongoDb",
+      "typeVersion": 1.2,
+      "position": [
+        2880,
+        0
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "delete",
+        "collection": "n8n_deliveries",
+        "query": "={{ JSON.stringify({ deliveryId: $('Chuẩn bị chống trùng').first().json.deliveryId, status: 'processing' }) }}"
+      },
+      "id": "4a5d6f6e-34bc-521f-b79f-9ae6e5fe7216",
+      "name": "Bỏ đánh dấu khi lỗi",
+      "type": "n8n-nodes-base.mongoDb",
+      "typeVersion": 1.2,
+      "position": [
+        2400,
+        480
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: false, error: 'workflow_failed_retry_safe' }) }}",
+        "options": {
+          "responseCode": 502
+        }
+      },
+      "id": "7a408ffa-f472-5b1f-89f2-3ead2de05aad",
+      "name": "Trả 502 cho gửi lại",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        2640,
+        480
       ]
     }
   ],
@@ -366,7 +640,7 @@
       "main": [
         [
           {
-            "node": "Lấy bài nộp",
+            "node": "Chuẩn bị chống trùng",
             "type": "main",
             "index": 0
           }
@@ -388,6 +662,13 @@
             "type": "main",
             "index": 0
           }
+        ],
+        [
+          {
+            "node": "Bỏ đánh dấu khi lỗi",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
@@ -396,6 +677,13 @@
         [
           {
             "node": "Lưu kết quả",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Bỏ đánh dấu khi lỗi",
             "type": "main",
             "index": 0
           }
@@ -410,10 +698,133 @@
             "type": "main",
             "index": 0
           }
+        ],
+        [
+          {
+            "node": "Bỏ đánh dấu khi lỗi",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "Báo kết quả PWA": {
+      "main": [
+        [
+          {
+            "node": "Chuẩn bị đánh dấu xong",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Bỏ đánh dấu khi lỗi",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Chuẩn bị chống trùng": {
+      "main": [
+        [
+          {
+            "node": "Đánh dấu đang xử lý",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Đánh dấu đang xử lý": {
+      "main": [
+        [
+          {
+            "node": "Lần đầu nhận?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lần đầu nhận?": {
+      "main": [
+        [
+          {
+            "node": "Lấy bài nộp",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Tìm lần gửi trước",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tìm lần gửi trước": {
+      "main": [
+        [
+          {
+            "node": "Lần trước ra sao?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lần trước ra sao?": {
+      "main": [
+        [
+          {
+            "node": "Trả kết quả lần trước",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Trả 409 đang xử lý",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Trả 503 chưa kiểm tra được",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Chuẩn bị đánh dấu xong": {
+      "main": [
+        [
+          {
+            "node": "Đánh dấu đã xử lý",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bỏ đánh dấu khi lỗi": {
+      "main": [
+        [
+          {
+            "node": "Trả 502 cho gửi lại",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Đánh dấu đã xử lý": {
       "main": [
         [
           {

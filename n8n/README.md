@@ -1,6 +1,6 @@
 # Nối ba workflow của sinh viên với NestJS
 
-Các JSON đều có 12 node. Backend bổ sung API cho FAQ, bài nộp và mốc đồ án; ba luồng đăng ký học phần/điểm danh/cảnh báo của nhóm khác vẫn dùng API cũ.
+FAQ và mốc đồ án có 12 node; bài nộp có thêm bộ node chống trùng (24 node). Backend bổ sung API cho FAQ, bài nộp và mốc đồ án; ba luồng đăng ký học phần/điểm danh/cảnh báo của nhóm khác vẫn dùng API cũ.
 
 ## Chạy backend
 
@@ -86,3 +86,48 @@ curl http://localhost:3001/submissions/ID_TRA_VE \
 Chờ trạng thái COMPLETED hoặc FAILED. BullMQ thử tối đa ba lần khi n8n lỗi; callback lưu cùng record nên không nhân bản thông báo. Nếu Redis lỗi khi nhận bài, trạng thái lưu là QUEUE_FAILED.
 
 Thông báo hiện được lưu bền và có thể đọc bằng GET; giao diện PWA chưa nối các API mới, chưa có Socket.io push. Kiểm thử cục bộ mock MongoDB/Redis/n8n; chưa chứng minh kết nối thật tới n8n của nhóm trên Linux.
+
+## Chống trùng theo X-Delivery-Id
+
+Backend gửi lại một sự kiện khi chắc n8n chưa xử lý xong (lỗi kết nối, HTTP 429/502/503/504), và PWA gửi lại lô điểm danh hoặc đăng ký với cùng `Idempotency-Key`. Mọi lần gửi lại giữ nguyên header `X-Delivery-Id`, nên workflow có tác dụng phụ phải bỏ qua mã đã xử lý.
+
+### Cách hoạt động
+
+Workflow ghi mã vào bộ sưu tập MongoDB `n8n_deliveries` (cùng database `vku-ai-support` với backend) trước khi làm việc thật:
+
+| Tình huống | Trả về |
+|---|---|
+| Mã mới | Xử lý bình thường, ghi `status: done` kèm kết quả, giữ 7 ngày |
+| Mã đã xử lý xong | HTTP 200 với đúng kết quả lần đầu, không chạy lại |
+| Mã đang được xử lý (hai lần gửi cùng lúc) | HTTP 409 `delivery_in_progress`; bên gửi thử lại sau |
+| Một bước xử lý lỗi | Xóa đánh dấu, trả 502 để bên gửi gửi lại an toàn |
+| Không ghi hoặc đọc được MongoDB | HTTP 503, không xử lý (thà chậm còn hơn chạy trùng) |
+| Thiếu `X-Delivery-Id` | Vẫn xử lý, nhưng không bỏ trùng được |
+
+Bản ghi đang xử lý tự hết hạn sau 10 phút (TTL), nên một lần chạy bị bỏ dở không chặn mãi các lần gửi lại.
+
+Việc chặn trùng dựa vào chỉ mục duy nhất trên `deliveryId`. Backend tự tạo chỉ mục này và chỉ mục TTL trên `expiresAt` khi khởi động (`backend/src/modules/n8n-delivery`). Nếu n8n ghi vào database khác, tạo thủ công:
+
+```js
+db.n8n_deliveries.createIndex({ deliveryId: 1 }, { unique: true })
+db.n8n_deliveries.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 })
+```
+
+Thiếu chỉ mục duy nhất thì workflow vẫn chạy nhưng không chặn được trùng.
+
+### Workflow trong repo
+
+- **Bài nộp** đã có bộ node này. Backend gửi `X-Delivery-Id: assignment:<submissionId>` cho mọi lần BullMQ thử lại, nên lần thử lại sau khi n8n đã chấm xong chỉ nhận lại kết quả, không gọi Gemini lần nữa. Chọn MongoDB credential cho 5 node MongoDB mới.
+- **Mốc đồ án** và **FAQ**: backend gửi mã ngẫu nhiên và không tự gửi lại, nên chưa cần.
+
+### Ghép vào workflow điểm danh, đăng ký học phần, cảnh báo học vụ
+
+1. Import `templates/delivery-dedupe.json` để xem mẫu, chọn MongoDB credential cho các node MongoDB.
+2. Copy 8 node từ **Chuẩn bị chống trùng** đến các node trả 200/409/503, cùng **Chuẩn bị đánh dấu xong**, **Đánh dấu đã xử lý**, **Bỏ đánh dấu khi lỗi**, **Trả 502 cho gửi lại** vào workflow của bạn.
+3. Trong **Chuẩn bị chống trùng**: đổi `SCOPE` thành tên riêng của workflow (ví dụ `attendance-offline-sync`) và đổi tên node webhook trong `$('Nhận sự kiện')` cho khớp.
+4. Nối sau bước kiểm tra HMAC: chữ ký hợp lệ → **Chuẩn bị chống trùng**; nhánh "lần đầu" của **Lần đầu nhận?** → bước xử lý đầu tiên của bạn.
+5. Bước cuối thành công → **Chuẩn bị đánh dấu xong** → **Đánh dấu đã xử lý** → node trả lời 200. Trong **Chuẩn bị đánh dấu xong**, đặt `response` bằng đúng nội dung workflow trả về (ví dụ `ack_token` của điểm danh) để lần gửi trùng nhận lại y nguyên.
+6. Với mỗi bước có thể lỗi (HTTP, ghi dữ liệu, gửi email): Settings → On Error → *Continue (using error output)*, nối đầu ra lỗi vào **Bỏ đánh dấu khi lỗi**.
+
+Kiểm tra chữ ký: backend gửi `x-signature: sha256=<hex>`. Mã kiểm tra HMAC trong mẫu chấp nhận cả dạng có và không có tiền tố `sha256=`.
+

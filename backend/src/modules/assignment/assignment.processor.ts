@@ -34,6 +34,9 @@ export class AssignmentProcessor extends WorkerHost {
       url,
       0,
       120000,
+      // BullMQ thử lại job với cùng mã: workflow bỏ trùng theo X-Delivery-Id, nên lần
+      // thử lại sau khi n8n đã chấm xong chỉ nhận lại kết quả cũ, không gọi Gemini lần nữa.
+      { deliveryId: `assignment:${job.data.submissionId}` },
     );
     if (!result.success)
       throw new Error(`Workflow bài nộp thất bại: HTTP ${result.statusCode}`);
