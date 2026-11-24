@@ -19,6 +19,7 @@ import { SyncModule } from './modules/sync/sync.module';
 import { FaqController } from './faq.controller';
 import { PortalKeyGuard } from './modules/auth/portal-key.guard';
 import { FaqMemoryModule } from './modules/faq-memory/faq-memory.module';
+import { N8nDeliveryModule } from './modules/n8n-delivery/n8n-delivery.module';
 
 @Module({
   imports: [
@@ -58,6 +59,7 @@ import { FaqMemoryModule } from './modules/faq-memory/faq-memory.module';
     AuthModule,
     SyncModule,
     FaqMemoryModule,
+    N8nDeliveryModule,
   ],
   controllers: [AppController, FaqController],
   providers: [AppService, { provide: APP_GUARD, useClass: PortalKeyGuard }],

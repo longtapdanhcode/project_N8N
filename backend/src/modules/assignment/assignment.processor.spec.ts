@@ -60,6 +60,8 @@ describe('AssignmentProcessor', () => {
       'http://n8n/webhook/assignment-analyzed',
       0,
       120000,
+      // Cùng mã cho mọi lần BullMQ thử lại, để workflow bỏ trùng.
+      { deliveryId: 'assignment:sub-456' },
     );
   });
 
